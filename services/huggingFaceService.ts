@@ -840,8 +840,6 @@ export const generateWithHuggingFaceSpace = async (
 
   // Bangun payload data dinamis berdasarkan skema komponen Space
   let payloadData: any[] = [];
-  const hasSeparateImageInputs = inputComponents.some(c => (c.type || '').toLowerCase() === 'image');
-  const allRefImages = [formattedImage, formattedExtraRef, ...formattedGallery].filter(Boolean);
 
   if (inputComponents.length > 0) {
     let imageInputCount = 0;
@@ -856,7 +854,7 @@ export const generateWithHuggingFaceSpace = async (
         } else {
           payloadData.push(effectivePrompt);
         }
-      } else if (type === 'image') {
+      } else if (type === 'image' || label.includes('image')) {
         imageInputCount++;
         if (imageInputCount === 1) {
           // Slot 1: Base / Target Image (Foto Profil / Wajah Karakter)
@@ -867,46 +865,20 @@ export const generateWithHuggingFaceSpace = async (
         } else {
           payloadData.push(null);
         }
-      } else if (type === 'gallery' || label.includes('ref') || label.includes('additional')) {
-        if (!hasSeparateImageInputs) {
-          // Space seperti Viggle Turbo: seluruh gambar referensi dikirim dalam bentuk gallery component
-          payloadData.push(allRefImages.map(img => typeof img === 'string' ? { path: img } : img));
-        } else {
-          // Space seperti CopoZ / Official Qwen: slot 1 & 2 gambar terpisah, gallery untuk additional images
-          payloadData.push(formattedGallery);
-        }
-      } else if (type === 'dropdown' || type === 'radio') {
-        if (label.includes('size')) {
-          payloadData.push(comp.defaultValue || "Auto · match the last reference (1024² area)");
-        } else if (label.includes('enhance')) {
-          payloadData.push("Off");
-        } else if (label.includes('version')) {
-          payloadData.push(comp.defaultValue || "v0.3");
-        } else {
-          payloadData.push(comp.defaultValue ?? null);
-        }
-      } else if (type === 'number' || type === 'slider') {
-        if (label.includes('seed')) {
-          payloadData.push(0);
-        } else if (label.includes('steps')) {
-          payloadData.push(6);
-        } else if (label.includes('width') || label.includes('height')) {
-          payloadData.push(1024);
-        } else if (label.includes('identity lock')) {
-          payloadData.push(shouldInjectAnatomy ? 65 : 0);
-        } else {
-          payloadData.push(comp.defaultValue ?? 0);
-        }
-      } else if (type === 'checkbox') {
-        if (label.includes('randomize')) {
-          payloadData.push(true);
-        } else if (label.includes('identity') || label.includes('face') || label.includes('hands') || label.includes('anatomy')) {
-          payloadData.push(shouldInjectAnatomy);
-        } else {
-          payloadData.push(comp.defaultValue ?? false);
-        }
+      } else if (type === 'gallery' || label.includes('additional')) {
+        // Slot Gallery: Additional Images (auto-indexed after Image 1/2)
+        payloadData.push(formattedGallery);
       } else if (comp.defaultValue !== undefined && comp.defaultValue !== null) {
         payloadData.push(comp.defaultValue);
+      } else if (type === 'slider') {
+        if (label.includes('identity lock')) payloadData.push(shouldInjectAnatomy ? 65 : 0);
+        else payloadData.push(0);
+      } else if (type === 'checkbox') {
+        if (label.includes('identity') || label.includes('face') || label.includes('hands') || label.includes('anatomy')) {
+          payloadData.push(shouldInjectAnatomy);
+        } else {
+          payloadData.push(false);
+        }
       } else {
         payloadData.push(null);
       }

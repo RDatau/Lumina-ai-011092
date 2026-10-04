@@ -981,7 +981,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <span className={`text-[9px] font-bold ${dynamicMutedTextColor} uppercase tracking-wider`}>
                                   URL Hugging Face Space
                                 </span>
-                                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                <div className="flex items-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => updateGlobalGemini({ 
@@ -991,18 +991,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border border-amber-500/40 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all`}
                                     title="Gunakan Space Default CopoZ"
                                   >
-                                    CopoZ Rapid AIO
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateGlobalGemini({ 
-                                      hfSpaceUrl: 'https://huggingface.co/spaces/Viggle/Qwen-Image-2.1-viggle-turbo',
-                                      hfApiEndpoint: '/generate'
-                                    })}
-                                    className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border border-indigo-500/40 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-all`}
-                                    title="Gunakan Space Viggle Turbo Qwen 2.1"
-                                  >
-                                    Viggle Turbo 2.1
+                                    CopoZ Rapid AIO (Default)
                                   </button>
                                   <button
                                     type="button"
@@ -1013,7 +1002,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border border-white/20 text-neutral-300 hover:bg-white/10 transition-all`}
                                     title="Gunakan Space Resmi Qwen jika CopoZ bermasalah"
                                   >
-                                    Official Qwen
+                                    Official Qwen (Cadangan)
                                   </button>
                                 </div>
                               </div>
