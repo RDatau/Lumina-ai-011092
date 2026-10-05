@@ -2262,11 +2262,11 @@ const ChatView: React.FC<ChatViewProps> = ({
               
               <div 
                 onClick={onEdit} 
-                className="ml-1.5 flex-1 min-w-0 h-full flex flex-col justify-center select-none cursor-pointer py-1 px-2 rounded-xl hover:bg-white/10 active:scale-[0.99] transition-all"
+                className="ml-1 flex-1 min-w-0 h-full flex flex-col justify-center select-none cursor-pointer py-1.5 px-2.5 rounded-2xl hover:bg-white/10 active:scale-[0.99] transition-all"
                 title="Buka Pengaturan Karakter"
               >
-                <div className="flex items-center gap-1.5">
-                  <h2 className={`font-bold text-sm md:text-base leading-tight tracking-tight truncate max-w-[120px] sm:max-w-[200px] md:max-w-[320px] ${dynamicTextColor}`}>{config.name}</h2>
+                <div className="flex items-center gap-1.5 min-w-0 w-full">
+                  <h2 className={`font-bold text-sm md:text-base leading-tight tracking-tight truncate ${dynamicTextColor}`}>{config.name}</h2>
                   {userProfile.geminiApiKey && (
                     <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0" title="Menggunakan API Key Pribadi">
                       <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />

@@ -1539,7 +1539,7 @@ Return ONLY raw JSON, with no markdown code fences or backticks.`
  * 4. Logika PAP Pertama (Chat pertama tanpa riwayat PAP):
  * Mengarang kegiatan malam, pagi, siang, sore, petang dan ruangan yang cocok serta baju yang serasi.
  */
-export const generateFirstPapContext = (userPrompt: string): {
+export const generateFirstPapContext = (userPrompt: string, isAgentMale: boolean = false): {
   timeOfDay: string;
   activity: string;
   roomSetting: string;
@@ -1566,6 +1566,47 @@ export const generateFirstPapContext = (userPrompt: string): {
     else if (hour >= 15 && hour < 18) timeOfDay = 'sore';
     else if (hour >= 18 && hour < 21) timeOfDay = 'petang';
     else timeOfDay = 'malam';
+  }
+
+  if (isAgentMale) {
+    switch (timeOfDay) {
+      case 'pagi':
+        return {
+          timeOfDay: 'Morning',
+          activity: 'Fresh morning awakening, stretching leisurely in bed, greeting the user with a gentle morning smile',
+          roomSetting: 'bright sunlit modern bedroom with soft morning light streaming through sheer curtains, clean white linens, airy and tidy atmosphere',
+          recommendedOutfit: 'comfortable cotton morning pajamas or cozy soft t-shirt'
+        };
+      case 'siang':
+        return {
+          timeOfDay: 'Afternoon',
+          activity: 'Relaxing during a peaceful midday break at home, lounging comfortably',
+          roomSetting: 'cozy air-conditioned bedroom or living area with natural daylight, comfortable modern seating',
+          recommendedOutfit: 'chic casual home attire, such as a fitted cotton t-shirt and breathable shorts'
+        };
+      case 'sore':
+        return {
+          timeOfDay: 'Late Afternoon',
+          activity: 'Unwinding peacefully in the late afternoon, enjoying the warm golden hour ambiance',
+          roomSetting: 'warm aesthetic bedroom illuminated by the golden sunset glow, soft curtains, tidy room ambiance',
+          recommendedOutfit: 'stylish relaxed lounge shirt with soft casual pants'
+        };
+      case 'petang':
+        return {
+          timeOfDay: 'Early Evening',
+          activity: 'Winding down at twilight after a long day, settling into the calm comfort of home',
+          roomSetting: 'peaceful bedroom with soothing warm twilight hues and soft ambient lamp glow',
+          recommendedOutfit: 'soft relaxed home loungewear or comfortable lounge pants'
+        };
+      case 'malam':
+      default:
+        return {
+          timeOfDay: 'Night / Late Night',
+          activity: 'Preparing to sleep or lounging intimately on the bed late at night',
+          roomSetting: 'intimate cozy bedroom with clear warm bedroom lighting, plush bed with smooth sheets',
+          recommendedOutfit: 'sleek cozy silk pajama set or casual lounge shorts'
+        };
+    }
   }
 
   switch (timeOfDay) {
@@ -1666,13 +1707,29 @@ export const generatePAP = async (
   }
   const hasUserPic = !!resolvedUserPic;
 
-  // Analisis profil user untuk ciri fisik & gender jika foto profil user belum ada
+  // Deteksi profil user untuk ciri fisik & gender jika foto profil user belum ada
   const userPersonality = (effectiveUserProfile?.personalityInfo || '').toLowerCase();
   const isUserFemale = userPersonality.includes('wanita') || userPersonality.includes('perempuan') || userPersonality.includes('cewek') || userPersonality.includes('female') || userPersonality.includes('girl');
   const userGenderTitle = isUserFemale ? 'Female' : 'Male';
   const userTraitsDesc = effectiveUserProfile?.personalityInfo
     ? `${userGenderTitle}, traits: ${effectiveUserProfile.personalityInfo}`
     : `${userGenderTitle}, handsome/attractive young adult Indonesian appearance, casual attire`;
+
+  // Deteksi gender agen/karakter secara otomatis berdasarkan persona / info karakter
+  const agentBio = `${config.name || ''} ${config.personality || ''} ${config.enrichedPersona || ''}`.toLowerCase();
+  const isAgentExplicitMale = /\b(?:pria|cowok|laki-laki|laki\s+laki|pangeran|paman|kakek|suami|mas|abang|bro|male|man|boy|gentleman|guy|husband|prince|uncle)\b/i.test(agentBio);
+  const isAgentExplicitFemale = /\b(?:wanita|perempuan|cewek|gadis|putri|bibi|nenek|istri|mbak|nona|female|woman|girl|lady|wife|princess|aunt)\b/i.test(agentBio);
+
+  // Jika tertera Pria & TIDAK tertera Wanita -> MALE. Selain itu (tertera Wanita ATAU tidak keduanya tertera) -> Fallback ke FEMALE!
+  const isAgentMale = isAgentExplicitMale && !isAgentExplicitFemale;
+  const agentGenderTitle = isAgentMale ? 'MALE' : 'FEMALE';
+  const agentGenderLower = isAgentMale ? 'male' : 'female';
+  const agentPossessive = isAgentMale ? 'his' : 'her';
+  const agentPronoun = isAgentMale ? 'him' : 'her';
+  const agentSubject = isAgentMale ? 'he' : 'she';
+  const agentPhysiqueDesc = isAgentMale 
+    ? 'body build, chest/abs physique, and stomach muscles' 
+    : 'body build, bust proportions, and stomach physique';
   
   // 1. Cek apakah ini interaksi spesifik dengan USER (Harus sangat eksplisit)
   const isWithUser = (
@@ -1767,31 +1824,16 @@ export const generatePAP = async (
   const hasPreviousPap = !!latestPap?.image;
   const isContinuingOutfit = latestPap && effectiveConfig.currentOutfit === latestPap.outfit;
 
-  // 360-Degree Omnidirectional PAP Angle Sampling (Front, Back, Side, Full-Body):
-  const sameOutfitPaps = papsInHistory.filter((p, idx) => {
-    if (idx === 0) return false; // Abaikan latestPap yang sudah ada di Slot 2
+  // Cari PAP Full-Body / PAP sebelumnya dari sesi outfit yang sama (misal PAP 1 saat PAP 2 half-body)
+  const fullBodyPap = papsInHistory.length > 1 ? papsInHistory.find((p, idx) => {
+    if (idx === 0) return false; // Abaikan latestPap
     const isSameOutfit = p.outfit && latestPap?.outfit && (
       p.outfit.toLowerCase() === latestPap.outfit.toLowerCase() || 
       p.outfit.toLowerCase().includes(latestPap.outfit.toLowerCase().slice(0, 10))
     );
     const isRecent = latestPap ? (latestPap.timestamp - p.timestamp < 4 * 60 * 60 * 1000) : false;
     return isSameOutfit || isRecent;
-  });
-
-  const frontViewPap = sameOutfitPaps.find(p => {
-    const text = `${p.imagePrompt || ''} ${p.text || ''}`.toLowerCase();
-    return text.includes('front') || text.includes('depan') || text.includes('dada') || text.includes('wajah');
-  }) || sameOutfitPaps[0] || null;
-
-  const backViewPap = sameOutfitPaps.find(p => {
-    const text = `${p.imagePrompt || ''} ${p.text || ''}`.toLowerCase();
-    return text.includes('back') || text.includes('belakang') || text.includes('punggung');
-  }) || null;
-
-  const fullBodyPap = sameOutfitPaps.find(p => {
-    const text = `${p.imagePrompt || ''} ${p.text || ''}`.toLowerCase();
-    return text.includes('full body') || text.includes('full-body') || text.includes('seluruh') || text.includes('berdiri');
-  }) || sameOutfitPaps[0] || null;
+  }) || (papsInHistory.length > 1 ? papsInHistory[1] : null) : null;
 
   const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.text || '';
   const combinedTextForCheck = `${lowCaption} ${lastUserMsg.toLowerCase()}`;
@@ -1855,7 +1897,7 @@ export const generatePAP = async (
   const isEffectiveUndress = isExplicitUndress || isNudeContinuity;
 
   // 4. Logika PAP Pertama (Chat pertama tanpa riwayat PAP)
-  const firstPapContext = !hasPreviousPap ? generateFirstPapContext(rawCaption) : null;
+  const firstPapContext = !hasPreviousPap ? generateFirstPapContext(rawCaption, isAgentMale) : null;
   const rawOutfit = previousPapAnalysis?.outfitPrompt || latestPap?.outfit || (firstPapContext ? firstPapContext.recommendedOutfit : '');
   const analyzedOutfit = cleanRawCaptionToPureGarment(rawOutfit);
   const analyzedRoom = previousPapAnalysis?.roomPrompt || (firstPapContext ? firstPapContext.roomSetting : 'identical bedroom interior, bed, sheets, lighting');
@@ -2048,25 +2090,15 @@ Retain the EXACT SAME ROOM with previous PAP (identical bedroom layout, exact sa
         }
         translatorParts.push({ inlineData: { mimeType, data } });
 
-        // JIKA ADA PAP KUMPULAN SUDUT PANDANG (360-Degree Angle Matrix) DARI SESI YANG SAMA
+        // JIKA ADA FULL-BODY PAP DARI SESI YANG SAMA (misal PAP 1 saat PAP 2 half-body)
         // HIRARKI KETAT: Masukkan HANYA jika user TIDAK mengunggah gambar baru & TIDAK meminta ganti baju/lepas baju
-        const compPap = frontViewPap?.image !== latestPap.image ? frontViewPap : (fullBodyPap?.image !== latestPap.image ? fullBodyPap : null);
-        if (compPap?.image && compPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
-          const [fbHeader, fbData] = compPap.image.split(',');
+        if (fullBodyPap?.image && fullBodyPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
+          const [fbHeader, fbData] = fullBodyPap.image.split(',');
           const fbMimeType = fbHeader.split(':')[1]?.split(';')[0] || 'image/jpeg';
-          translatorParts.push({ text: `REFERENCE IMAGE 3 (360-DEGREE OUTFIT CONTINUITY - COMPLEMENTARY ANGLE REFERENCE):
-1. OUTFIT PATTERN CONTINUITY: Reference Image 3 displays a complementary angle/full-body view of the exact same continuous outfit (${analyzedOutfit}).
-2. COMPLEMENTARY GARMENT DETAILS: Faithfully copy and match any missing upper chest/neckline, backless/rear zipper cut, lower skirt/pants length, fabric textures, embroidery, motifs, and hem details from Reference Image 3 when generating the new shot!` });
+          translatorParts.push({ text: `REFERENCE IMAGE 3 (FULL-BODY OUTFIT & COMPLEMENTARY GARMENT REFERENCE):
+1. OUTFIT PATTERN CONTINUITY: Reference Image 3 displays the full-body or complementary view of the same continuous outfit (${analyzedOutfit}).
+2. COMPLEMENTARY GARMENT DETAILS: Faithfully copy and match any missing upper garment/top/neckline, lower skirt/pants length, fabric textures, embroidery, motifs, and hem details from Reference Image 3 when generating the new shot!` });
           translatorParts.push({ inlineData: { mimeType: fbMimeType, data: fbData } });
-
-          // Tampilan Sudut Belakang Tambahan (Slot 4) jika ada dan berbeda
-          if (backViewPap?.image && backViewPap.image !== latestPap.image && backViewPap.image !== compPap.image) {
-            const [bHeader, bData] = backViewPap.image.split(',');
-            const bMimeType = bHeader.split(':')[1]?.split(';')[0] || 'image/jpeg';
-            translatorParts.push({ text: `REFERENCE IMAGE 4 (ADDITIONAL REAR/SIDE ANGLE OUTFIT PATTERN REFERENCE):
-Extract additional rear/side outfit details (backless cut, back zipper, rear pockets, side seams) from Reference Image 4 for complete 360-degree 3D outfit synthesis!` });
-            translatorParts.push({ inlineData: { mimeType: bMimeType, data: bData } });
-          }
         }
       }
     }
@@ -2116,11 +2148,11 @@ Extract additional rear/side outfit details (backless cut, back zipper, rear poc
     const coupleInstructionUncensored = isTogether
       ? (hasUserPic
           ? `- TWO-PERSON / COUPLE SHOT (EXPLICITLY REQUESTED BY USER):
-             * Character 1 (Agent ${config.name}): Must faithfully match the face/identity in AGENT REFERENCE (Image 1). Strictly FEMALE. her/his distinct feminine facial features, feminine body shape, and hair belong EXCLUSIVELY to her/his female body.
+             * Character 1 (Agent ${config.name}): Must faithfully match the face/identity in AGENT REFERENCE (Image 1). Strictly ${agentGenderTitle}. ${agentPossessive} distinct ${isAgentMale ? 'masculine' : 'feminine'} facial features, ${isAgentMale ? 'masculine' : 'feminine'} body shape, and hair belong EXCLUSIVELY to ${agentPossessive} ${agentGenderLower} body.
              * Character 2 (The User ${effectiveUserProfile?.name || 'User'}): Must faithfully match the face/identity in USER REFERENCE (Image 2). Distinct ${isUserFemale ? 'FEMALE' : 'MALE'} identity. ${isUserFemale ? 'Her' : 'His'} distinct ${isUserFemale ? 'feminine' : 'masculine'} facial features, jawline, and body build belong EXCLUSIVELY to Character 2.
              * ABSOLUTE ZERO IDENTITY / FACE SWAP & NO FACE CLONING:
                - Character 1 and Character 2 MUST have completely different facial structures, different eye shapes, and different haircuts. NEVER make them have identical or twin faces!
-               - Character 1's female face must NEVER be placed on Character 2's body, and Character 2's face must NEVER be placed on Character 1's body!
+               - Character 1's ${agentGenderLower} face must NEVER be placed on Character 2's body, and Character 2's face must NEVER be placed on Character 1's body!
              * STRICT COUPLE ANATOMY & JOINT INTEGRITY (DISLOCATED ANATOMY GUARD):
                - Depict two clearly separated human bodies: exactly TWO heads, FOUR arms (two arms attached naturally to Character 1's shoulders, two arms attached naturally to Character 2's shoulders), FOUR legs (two for Character 1, two for Character 2).
                - Disambiguate limb ownership clearly: describe exactly where Character 1's arms/legs are positioned, and where Character 2's arms/legs are positioned.
@@ -2128,7 +2160,7 @@ Extract additional rear/side outfit details (backless cut, back zipper, rear poc
                - ZERO body merging: NO conjoined torsos, NO fused limbs, NO extra arms/legs, NO floating hands.
              * Pose & Scene: Depict Character 1 and Character 2 posing together in the requested interaction: "${rawCaption}".`
           : `- TWO-PERSON / COUPLE SHOT (EXPLICITLY REQUESTED BY USER):
-             * Character 1 (Agent ${config.name}): Must faithfully match the face/identity in AGENT REFERENCE (Image 1). Strictly FEMALE.
+             * Character 1 (Agent ${config.name}): Must faithfully match the face/identity in AGENT REFERENCE (Image 1). Strictly ${agentGenderTitle}.
              * Character 2 (The User ${effectiveUserProfile?.name || 'User'}): A companion posing beside Character 1 as a couple based on user profile (${userTraitsDesc}). Distinct ${isUserFemale ? 'FEMALE' : 'MALE'} individual.
              * ABSOLUTE ZERO IDENTITY / FACE SWAP & NO FACE CLONING:
                - Character 1 and Character 2 MUST have completely different faces, different bone structures, and different expressions.
@@ -2139,18 +2171,18 @@ Extract additional rear/side outfit details (backless cut, back zipper, rear poc
                - NO dislocated shoulders, hips, or knees. NO conjoined torsos, NO fused limbs, NO extra limbs.
              * Pose & Scene: Depict Character 1 and Character 2 in the requested interaction: "${rawCaption}".`
         )
-      : `- STRICTLY SOLO: Character 1 (Agent ${config.name}) is ALONE in the frame. NO partner, NO second person, NO males, NO companion. Do NOT generate any second person.`;
+      : `- STRICTLY SOLO: Character 1 (Agent ${config.name}) is ALONE in the frame. NO partner, NO second person, ${isAgentMale ? 'NO females' : 'NO males'}, NO companion. Do NOT generate any second person.`;
 
     const coupleInstructionStandard = isTogether
       ? (hasUserPic
-          ? `- Character 1 (Agent ${config.name}): Must match the face/identity in AGENT REFERENCE (female).
+          ? `- Character 1 (Agent ${config.name}): Must match the face/identity in AGENT REFERENCE (${agentGenderLower}).
              - Character 2 (The User): Must match the USER REFERENCE (${userGenderTitle.toLowerCase()}).
              - STRICT: Two distinct individuals, completely different faces, NO face swapping, NO conjoined torso, NO dislocated limbs.`
-          : `- Character 1 (Agent ${config.name}): Must match the face/identity in AGENT REFERENCE (female).
+          : `- Character 1 (Agent ${config.name}): Must match the face/identity in AGENT REFERENCE (${agentGenderLower}).
              - Character 2 (The User): Naturally generated as ${userTraitsDesc} companion.
              - STRICT: Two distinct individuals, completely different faces, NO face swapping, NO conjoined torso, NO dislocated limbs.`
         )
-      : `- STRICTLY SOLO: NO MALES, NO COMPANION. Character 1 is ALONE.`;
+      : `- STRICTLY SOLO: ${isAgentMale ? 'NO FEMALES' : 'NO MALES'}, NO COMPANION. Character 1 is ALONE.`;
 
     let outfitTransitionInstruction = "";
     if (isEffectiveUndress) {
@@ -2255,7 +2287,7 @@ Extract additional rear/side outfit details (backless cut, back zipper, rear poc
       : (hasOutfitRef && !isTogether
           ? `Start with "${WEAR_UPLOADED_OUTFIT_PROMPT}".`
           : (isTogether
-              ? `Start with "Two distinct individuals posing together: Character 1 is a female named ${config.name} with distinct feminine features matching AGENT REFERENCE, and Character 2 is a ${userGenderTitle.toLowerCase()} named ${effectiveUserProfile?.name || 'User'} with distinct ${isUserFemale ? 'feminine' : 'masculine'} features. Each person has a unique, different face and expression with NO face swapping or same-face syndrome. [Describe Character 1's exact pose and limb placement]. [Describe Character 2's exact pose and limb placement, ensuring two separate bodies, correct joint alignment, and NO dislocated anatomy]".`
+              ? `Start with "Two distinct individuals posing together: Character 1 is a ${agentGenderLower} named ${config.name} with distinct ${isAgentMale ? 'masculine' : 'feminine'} features matching AGENT REFERENCE, and Character 2 is a ${userGenderTitle.toLowerCase()} named ${effectiveUserProfile?.name || 'User'} with distinct ${isUserFemale ? 'feminine' : 'masculine'} features. Each person has a unique, different face and expression with NO face swapping or same-face syndrome. [Describe Character 1's exact pose and limb placement]. [Describe Character 2's exact pose and limb placement, ensuring two separate bodies, correct joint alignment, and NO dislocated anatomy]".`
               : (isEffectiveUndress
                   ? `Start with "${UNDRESS_PROMPT}".`
                     : (isExplicitOutfitChange
@@ -2482,14 +2514,11 @@ Extract additional rear/side outfit details (backless cut, back zipper, rear poc
         // 1. Jika TIDAK ada foto referensi dari user -> PAP sebelumnya (referensi pakaian dan ruangan) masuk sebagai Image 2 (Slot 2)
         extraRefImage = latestPap.image;
 
-        // 2. SOLUSI HIRARKI SLOT KETAT & 360-DEGREE MULTI-PAP SAMPLING:
-        const compPap = frontViewPap?.image !== latestPap.image ? frontViewPap : (fullBodyPap?.image !== latestPap.image ? fullBodyPap : null);
-        if (compPap?.image && compPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
-          additionalImages.push(compPap.image); // Slot 3 (Front / Full Body Complementary)
-
-          if (backViewPap?.image && backViewPap.image !== latestPap.image && backViewPap.image !== compPap.image) {
-            additionalImages.push(backViewPap.image); // Slot 4 (Rear / Side Complementary)
-          }
+        // 2. SOLUSI HIRARKI SLOT KETAT & MULTI-PAP SAMPLING:
+        // Jika PAP terakhir (PAP 2) berpotongan half-body dan ada PAP full-body sebelumnya (PAP 1 / fullBodyPap) dari sesi outfit yang sama,
+        // masukkan `fullBodyPap.image` ke Gallery (Slot 3) HANYA jika user tidak mengunggah gambar baru & tidak meminta ganti baju/lepas baju!
+        if (fullBodyPap?.image && fullBodyPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
+          additionalImages.push(fullBodyPap.image);
         }
       }
 
