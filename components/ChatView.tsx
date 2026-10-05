@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AgentConfig, ChatMessage, Attachment, UserProfile, GlobalAppearance, ActiveGenerationTask } from '../types';
 import { generateAgentResponse, getSpeech, generatePAP, cleanResponseText, generateErrorMessage, reviseAgentResponseBasedOnImage, generateSmartTitle, isTtsModelStreamSupported, getActiveTtsModel, cleanRawCaptionToPureGarment, regeneratePapVariation } from '../services/geminiService';
+import { triggerNewMessageNotification } from '../services/notificationService';
 import ImageInfoModal from './ImageInfoModal';
 
 
@@ -689,6 +690,7 @@ const ChatView: React.FC<ChatViewProps> = ({
 
         setMessages(prev => prev.map(m => m.id === sourceMsg.id ? updatedMsg : m));
         addMessageToAgent(capturedAgentId, updatedMsg, false);
+        triggerNewMessageNotification(config.name, "Variasi PAP baru telah selesai dibuat!", 'pap', config.profilePic);
 
         setPreviewMedia(prev => prev ? ({
           ...prev,
@@ -1965,6 +1967,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       };
       
       addMessageToAgent(capturedAgentId, newAgentMsg);
+      triggerNewMessageNotification(config.name, finalDisplayText, papUrl ? 'pap' : 'text', config.profilePic);
       if (isMounted.current) {
         setIsTyping(false); 
         setLoadingType(null);

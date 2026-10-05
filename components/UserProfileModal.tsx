@@ -1,7 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { UserProfile, GlobalAppearance } from '../types';
-import { Eye, EyeOff, Key, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Key, CheckCircle2, XCircle, Loader2, Bell, Volume2, Smartphone } from 'lucide-react';
 import { validateApiKey } from '../services/geminiService';
+import { 
+  getNotificationSettings, 
+  saveNotificationSettings, 
+  requestNotificationPermission, 
+  getSystemNotificationPermissionState, 
+  playNotificationSound, 
+  triggerVibration 
+} from '../services/notificationService';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -19,6 +27,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
   const [name, setName] = useState(profile.name || '');
   const [personalityInfo, setPersonalityInfo] = useState(profile.personalityInfo || '');
   const [profilePic, setProfilePic] = useState<string | null>(profile.profilePic || null);
+  const [notifSound, setNotifSound] = useState(() => getNotificationSettings().enableSound);
+  const [notifVibration, setNotifVibration] = useState(() => getNotificationSettings().enableVibration);
+  const [notifSystem, setNotifSystem] = useState(() => getNotificationSettings().enableSystemNotifications);
+  const [permissionState, setPermissionState] = useState<NotificationPermission | 'unsupported'>(getSystemNotificationPermissionState());
   const [isDraggingImport, setIsDraggingImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -29,6 +41,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
       setName(profile.name || '');
       setPersonalityInfo(profile.personalityInfo || '');
       setProfilePic(profile.profilePic || null);
+      setNotifSound(getNotificationSettings().enableSound);
+      setNotifVibration(getNotificationSettings().enableVibration);
+      setNotifSystem(getNotificationSettings().enableSystemNotifications);
+      setPermissionState(getSystemNotificationPermissionState());
     }
   }, [isOpen, profile.name, profile.personalityInfo, profile.profilePic]);
 
@@ -46,11 +62,19 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
   };
 
   const handleSave = () => {
+    saveNotificationSettings({
+      enableSound: notifSound,
+      enableVibration: notifVibration,
+      enableSystemNotifications: notifSystem,
+    });
     onSave({
       ...profile,
       name,
       personalityInfo,
-      profilePic
+      profilePic,
+      enableNotificationSound: notifSound,
+      enableVibration: notifVibration,
+      enableSystemNotifications: notifSystem,
     });
     onClose();
   };
@@ -232,6 +256,123 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
             <p className={`text-[9px] leading-relaxed ${isDark ? 'text-white/30' : 'text-black/30'} px-1`}>
               Info ini bakal dipake Agen buat nyesuaiin gaya ngobrol dan ngenalin kamu lebih deket.
             </p>
+          </section>
+
+          {/* 3. Notifikasi & Getar (Mobile / Android) */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between select-none">
+              <label className={`text-[10px] font-black ${dynamicMutedTextColor} uppercase tracking-[0.3em] ml-1`}>Notifikasi & Getar (Mobile/Android)</label>
+              <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full border ${permissionState === 'granted' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                {permissionState === 'granted' ? 'Izin Bawaan Aktif' : (permissionState === 'unsupported' ? 'Web Only' : 'Perlu Izin Bawaan')}
+              </span>
+            </div>
+
+            <div className={`p-4 rounded-2xl border ${dynamicBorderColor} ${isDark ? 'bg-white/5' : 'bg-black/5'} space-y-3.5`}>
+              {/* Toggle Suara */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                    <Volume2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className={`text-xs font-bold ${dynamicTextColor}`}>Suara Notifikasi</p>
+                    <p className={`text-[9px] ${dynamicMutedTextColor}`}>Putar nada saat balasan/PAP telah selesai</p>
+                  </div>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifSound} 
+                  onChange={(e) => { setNotifSound(e.target.checked); saveNotificationSettings({ enableSound: e.target.checked }); }}
+                  className="w-5 h-5 accent-indigo-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Toggle Getar */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className={`text-xs font-bold ${dynamicTextColor}`}>Getar Mobile / Android</p>
+                    <p className={`text-[9px] ${dynamicMutedTextColor}`}>Getarkan HP saat ada balasan/PAP baru</p>
+                  </div>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifVibration} 
+                  onChange={(e) => { 
+                    setNotifVibration(e.target.checked); 
+                    saveNotificationSettings({ enableVibration: e.target.checked }); 
+                    if (e.target.checked) triggerVibration('text');
+                  }}
+                  className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Toggle Notifikasi Bawaan Android/Browser */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className={`text-xs font-bold ${dynamicTextColor}`}>Notifikasi Bawaan Perangkat</p>
+                    <p className={`text-[9px] ${dynamicMutedTextColor}`}>Kirim kabar ke status bar Android/Browser</p>
+                  </div>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={notifSystem} 
+                  onChange={(e) => { setNotifSystem(e.target.checked); saveNotificationSettings({ enableSystemNotifications: e.target.checked }); }}
+                  className="w-5 h-5 accent-emerald-500 rounded cursor-pointer"
+                />
+              </div>
+
+              {/* Tombol Minta Izin Notifikasi Bawaan Android */}
+              {permissionState !== 'granted' && permissionState !== 'unsupported' && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const res = await requestNotificationPermission();
+                      setPermissionState(res);
+                      if (res === 'granted') {
+                        alert("Izin notifikasi Android / Browser berhasil diberikan! 🎉");
+                      }
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    Aktifkan Izin Notifikasi Android / Browser
+                  </button>
+                </div>
+              )}
+
+              {/* Tombol Tes Suara & Getar */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playNotificationSound('text');
+                    triggerVibration('text');
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-xl border ${dynamicBorderColor} ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} text-[10px] font-bold ${dynamicTextColor} transition-all cursor-pointer`}
+                >
+                  🔔 Tes Nada Pesan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playNotificationSound('pap');
+                    triggerVibration('pap');
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-xl border ${dynamicBorderColor} ${isDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} text-[10px] font-bold ${dynamicTextColor} transition-all cursor-pointer`}
+                >
+                  📸 Tes Nada PAP
+                </button>
+              </div>
+            </div>
           </section>
 
           {/* 4. Import / Export */}

@@ -96,6 +96,9 @@ export interface GlobalGeminiSettings {
   hfApiEndpoint?: string;
   injectNegativePrompt?: boolean;
   injectAnatomyGuard?: boolean;
+  enableNotificationSound?: boolean;
+  enableVibration?: boolean;
+  enableSystemNotifications?: boolean;
 }
 
 export interface UserProfile {
@@ -118,6 +121,9 @@ export interface UserProfile {
   hfApiEndpoint?: string;
   injectNegativePrompt?: boolean;
   injectAnatomyGuard?: boolean;
+  enableNotificationSound?: boolean;
+  enableVibration?: boolean;
+  enableSystemNotifications?: boolean;
 }
 
 export interface GlobalAppearance {

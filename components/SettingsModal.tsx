@@ -1,10 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { Eye, EyeOff, Key, Loader2, CheckCircle2, XCircle, Globe, Sparkles, SlidersHorizontal, Palette, Upload, Download, Check, Cpu, Server, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, Key, Loader2, CheckCircle2, XCircle, Globe, Sparkles, SlidersHorizontal, Palette, Upload, Download, Check, Cpu, Server, ShieldCheck, ShieldAlert, Bell, Volume2, Smartphone } from "lucide-react";
 import { validateApiKey, parseGeminiApiKeys } from "../services/geminiService";
 import { GlobalAppearance, UserProfile } from '../types';
 import GlassDropdown from './GlassDropdown';
 import { saveGlobalGeminiSettingsSync, DEFAULT_QWEN_SPACE_URL } from '../services/dbService';
 import { testHuggingFaceSpace, parseHFTokens, HFTestResult } from '../services/huggingFaceService';
+import { 
+  getNotificationSettings, 
+  saveNotificationSettings, 
+  requestNotificationPermission, 
+  getSystemNotificationPermissionState, 
+  playNotificationSound, 
+  triggerVibration 
+} from '../services/notificationService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -27,7 +35,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   themeHex,
   isEmbeddedPage = false
 }) => {
-  const [activeTab, setActiveTab] = useState<'appearance' | 'gemini'>('appearance');
+  const [activeTab, setActiveTab] = useState<'appearance' | 'gemini' | 'notifications'>('appearance');
+  const [notifSound, setNotifSound] = useState(() => getNotificationSettings().enableSound);
+  const [notifVibration, setNotifVibration] = useState(() => getNotificationSettings().enableVibration);
+  const [notifSystem, setNotifSystem] = useState(() => getNotificationSettings().enableSystemNotifications);
+  const [permissionState, setPermissionState] = useState<NotificationPermission | 'unsupported'>(getSystemNotificationPermissionState());
   const [showApiKey, setShowApiKey] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{ valid: boolean; message: string } | null>(null);
@@ -329,6 +341,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span className={`text-[9px] ${dynamicMutedTextColor} block truncate`}>Model, suara, API key</span>
                 </div>
               </button>
+
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`w-full text-left p-3 rounded-2xl transition-all flex items-center gap-3 border ${
+                  activeTab === 'notifications'
+                    ? (isBackgroundDark ? 'bg-white/10 border-white/20 text-white shadow-md' : 'bg-black/10 border-black/10 text-zinc-900 shadow-md')
+                    : 'border-transparent text-white/50 hover:bg-white/5 hover:text-white/80'
+                }`}
+                style={activeTab === 'notifications' ? { borderLeftColor: themeHex || '#6366f1', borderLeftWidth: '4px' } : {}}
+              >
+                <div className={`p-2 rounded-xl ${activeTab === 'notifications' ? 'bg-white/10' : 'bg-transparent'}`}>
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-bold block truncate">Notifikasi & Getar</span>
+                  <span className={`text-[9px] ${dynamicMutedTextColor} block truncate`}>Suara, getar Android, izin</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -390,6 +420,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               Gemini AI
             </button>
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all ${
+                activeTab === 'notifications' 
+                  ? (isBackgroundDark ? 'bg-white text-black' : 'bg-black text-white') 
+                  : (isBackgroundDark ? 'text-white/50 hover:bg-white/10' : 'text-black/50 hover:bg-black/10')
+              }`}
+            >
+              Notifikasi
+            </button>
           </div>
         </div>
 
@@ -400,10 +440,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-white/10 select-none flex-shrink-0">
             <div>
               <h3 className={`text-sm font-black uppercase tracking-wider ${dynamicTextColor}`}>
-                {activeTab === 'appearance' ? 'Tampilan & Nuansa' : 'Konfigurasi Gemini AI'}
+                {activeTab === 'appearance' ? 'Tampilan & Nuansa' : (activeTab === 'gemini' ? 'Konfigurasi Gemini AI' : 'Notifikasi & Getar (Mobile/Android)')}
               </h3>
               <p className={`text-[10px] ${dynamicMutedTextColor}`}>
-                {activeTab === 'appearance' ? 'Kustomisasi wallpaper, warna aksen, efek kaca, dan pencadangan' : 'Model AI, suara percakapan & telepon, serta API Key global'}
+                {activeTab === 'appearance' ? 'Kustomisasi wallpaper, warna aksen, efek kaca, dan pencadangan' : (activeTab === 'gemini' ? 'Model AI, suara percakapan & telepon, serta API Key global' : 'Suara lonceng respon/PAP, getar Mobile/Android, dan izin bawaan')}
               </p>
             </div>
             <button 
@@ -1184,6 +1224,147 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               );
             })()}
+
+            {activeTab === 'notifications' && (
+              <div className="max-w-2xl mx-auto space-y-6">
+                <div className={`p-5 rounded-2xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} space-y-4`}>
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <Bell className="w-5 h-5 text-indigo-400" />
+                      <h4 className={`text-xs font-black uppercase tracking-widest ${dynamicTextColor}`}>Suara, Getar & Izin Notifikasi</h4>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${permissionState === 'granted' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                      {permissionState === 'granted' ? 'Izin Perangkat Aktif' : (permissionState === 'unsupported' ? 'Web Only' : 'Izin Belum Aktif')}
+                    </span>
+                  </div>
+
+                  {/* Toggle Suara */}
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <Volume2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold ${dynamicTextColor}`}>Suara Notifikasi</p>
+                        <p className={`text-[9px] ${dynamicMutedTextColor}`}>Putar nada jernih saat balasan pesan atau PAP telah selesai</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const next = !notifSound;
+                        setNotifSound(next);
+                        saveNotificationSettings({ enableSound: next });
+                        if (setUserProfile && userProfile) {
+                          setUserProfile({ ...userProfile, enableNotificationSound: next });
+                        }
+                      }}
+                      className={`relative w-11 h-6 rounded-full transition-all duration-300 ${notifSound ? 'bg-indigo-500' : 'bg-zinc-600'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${notifSound ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {/* Toggle Getar */}
+                  <div className="flex items-center justify-between py-2 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold ${dynamicTextColor}`}>Getar Mobile / Android</p>
+                        <p className={`text-[9px] ${dynamicMutedTextColor}`}>Getarkan HP/perangkat saat balasan atau PAP baru tiba</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const next = !notifVibration;
+                        setNotifVibration(next);
+                        saveNotificationSettings({ enableVibration: next });
+                        if (setUserProfile && userProfile) {
+                          setUserProfile({ ...userProfile, enableVibration: next });
+                        }
+                        if (next) triggerVibration('text');
+                      }}
+                      className={`relative w-11 h-6 rounded-full transition-all duration-300 ${notifVibration ? 'bg-purple-500' : 'bg-zinc-600'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${notifVibration ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {/* Toggle System Notification */}
+                  <div className="flex items-center justify-between py-2 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                        <Bell className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold ${dynamicTextColor}`}>Notifikasi Bawaan Status Bar Android / Browser</p>
+                        <p className={`text-[9px] ${dynamicMutedTextColor}`}>Tampilkan notifikasi di layar saat aplikasi berada di latar belakang</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const next = !notifSystem;
+                        setNotifSystem(next);
+                        saveNotificationSettings({ enableSystemNotifications: next });
+                        if (setUserProfile && userProfile) {
+                          setUserProfile({ ...userProfile, enableSystemNotifications: next });
+                        }
+                      }}
+                      className={`relative w-11 h-6 rounded-full transition-all duration-300 ${notifSystem ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${notifSystem ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {/* Permission request button */}
+                  {permissionState !== 'granted' && permissionState !== 'unsupported' && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await requestNotificationPermission();
+                          setPermissionState(res);
+                          if (res === 'granted') {
+                            alert("Izin notifikasi bawaan Android / Browser berhasil diberikan! 🎉");
+                          }
+                        }}
+                        className="w-full py-3 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                      >
+                        <Bell className="w-4 h-4" />
+                        Aktifkan / Minta Izin Notifikasi Android
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Sound & Vibe test buttons */}
+                  <div className="flex gap-2 pt-2 border-t border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playNotificationSound('text');
+                        triggerVibration('text');
+                      }}
+                      className={`flex-1 py-2.5 px-3 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} text-xs font-bold ${dynamicTextColor} transition-all cursor-pointer flex items-center justify-center gap-1.5`}
+                    >
+                      <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+                      Tes Nada Pesan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playNotificationSound('pap');
+                        triggerVibration('pap');
+                      }}
+                      className={`flex-1 py-2.5 px-3 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} text-xs font-bold ${dynamicTextColor} transition-all cursor-pointer flex items-center justify-center gap-1.5`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      Tes Nada PAP
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* MOBILE FOOTER (Visible on mobile only) */}
