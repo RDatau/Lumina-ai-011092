@@ -1320,7 +1320,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     try {
       setLoadingAudioId(msg.id); // Re-use loading state for visual feedback
       const textContent = (msg.text || '').trim() || (msg.attachments?.find(att => att.mimeType?.startsWith('audio/'))?.name || `Audio ${config.name}`);
-      const newTitle = await generateSmartTitle(textContent, userProfile.geminiApiKey, activeThread, true);
+      const newTitle = await generateSmartTitle(textContent, userProfile.geminiApiKey, activeThread);
 
       if (newTitle) {
         setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, audioTitle: newTitle } : m));
