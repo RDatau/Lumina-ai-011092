@@ -2840,7 +2840,11 @@ export const streamSpeech = async (
         try {
           const stream = await aiClient.models.generateContentStream({
             model: effectiveTtsModel,
-            contents: [{ parts: [{ text: `Speak this text: "${textForTts}". ${styleInstruction}` }] }],
+            contents: [
+              { parts: [
+                { text: `Speak this text: "${textForTts}",
+                  speechMetadata: {
+                    style: ${styleInstruction}` }] }],
             config: {
               responseModalities: [Modality.AUDIO],
               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
