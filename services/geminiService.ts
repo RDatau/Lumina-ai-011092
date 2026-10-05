@@ -2824,7 +2824,6 @@ export const streamSpeech = async (
     
     const styleInstruction = `
       Gaya Bicara: ${personality}.
-      'Mood: Ngos-ngosan dan penuh hentakan seperti orang sedang berolah raga atau aktifitas fisik yang tinggi, seoerti orang kelelahan dengan banyak napas'
       Instruksi Tambahan: Jika ada desahan seperti "ahhh" atau "mmmh", bacakan dengan sangat natural seperti manusia asli yang sedang merasakannya.
     `;
 
