@@ -1319,10 +1319,37 @@ const ChatView: React.FC<ChatViewProps> = ({
     setMetadataStatus("Memperbarui Judul...");
     try {
       setLoadingAudioId(msg.id); // Re-use loading state for visual feedback
-      const newTitle = await generateSmartTitle(msg.text, userProfile.geminiApiKey, activeThread);
-      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, audioTitle: newTitle } : m));
-    } catch (e) {
+      const textContent = (msg.text || '').trim() || (msg.attachments?.find(att => att.mimeType?.startsWith('audio/'))?.name || `Audio ${config.name}`);
+      const newTitle = await generateSmartTitle(textContent, userProfile.geminiApiKey, activeThread, true);
+
+      if (newTitle) {
+        setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, audioTitle: newTitle } : m));
+        const updatedMsg = { ...msg, audioTitle: newTitle };
+        addMessageToAgent(config.id || 'default', updatedMsg, false);
+        setMetadataStatus(`BERHASIL: Judul diperbarui menjadi "${newTitle}"`);
+        await new Promise(r => setTimeout(r, 2200));
+      } else {
+        throw new Error("Model Gemini tidak mengembalikan judul.");
+      }
+    } catch (e: any) {
       console.error("Gagal memperbarui judul:", e);
+      const rawErr = e?.message || (typeof e === 'string' ? e : '');
+      let causeStr = "Terjadi gangguan jaringan atau masalah koneksi server.";
+
+      if (!userProfile.geminiApiKey && !localStorage.getItem('lumina_gemini_api_key') && !process.env.GEMINI_API_KEY) {
+        causeStr = "API Key Gemini belum diisi. Silakan isi API Key di Pengaturan.";
+      } else if (rawErr.includes('429') || rawErr.toLowerCase().includes('quota') || rawErr.toLowerCase().includes('resource_exhausted')) {
+        causeStr = "Kuota API Gemini telah habis atau mencapai rate limit (Error 429).";
+      } else if (rawErr.toLowerCase().includes('api key') || rawErr.toLowerCase().includes('apikey') || rawErr.includes('403') || rawErr.includes('401')) {
+        causeStr = "API Key Gemini tidak valid atau telah kedaluwarsa.";
+      } else if (rawErr.toLowerCase().includes('safety') || rawErr.toLowerCase().includes('blocked')) {
+        causeStr = "Teks pesan diblokir oleh filter keamanan AI.";
+      } else if (rawErr) {
+        causeStr = rawErr;
+      }
+
+      setMetadataStatus(`GAGAL: ${causeStr}`);
+      await new Promise(r => setTimeout(r, 3500));
     } finally {
       setLoadingAudioId(null);
       setIsProcessingMetadata(false);
@@ -2190,20 +2217,50 @@ const ChatView: React.FC<ChatViewProps> = ({
       );
     };
 
-  const MetadataOverlay: React.FC<{ status: string }> = ({ status }) => (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="flex flex-col items-center gap-4 p-8 rounded-[40px] bg-white/5 border border-white/10 shadow-2xl">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-4 border-white/10"></div>
-          <div className="absolute inset-0 rounded-full border-4 animate-spin" style={{ borderColor: `${themeHex}20`, borderTopColor: themeHex }}></div>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-white font-black text-sm uppercase tracking-[0.2em]">{status}</p>
-          <p className="text-white/40 text-[10px] uppercase tracking-widest font-bold">Mohon tunggu sebentar ya sayang.. 💦</p>
+  const MetadataOverlay: React.FC<{ status: string }> = ({ status }) => {
+    const isSuccess = status.startsWith('BERHASIL');
+    const isError = status.startsWith('GAGAL');
+    const isFinished = isSuccess || isError;
+
+    let displayMessage = status;
+    if (isSuccess) displayMessage = status.replace(/^BERHASIL:\s*/, '');
+    if (isError) displayMessage = status.replace(/^GAGAL:\s*/, '');
+
+    return (
+      <div className="fixed inset-0 z-[350] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className={`bg-zinc-900/95 border ${isSuccess ? 'border-emerald-500/50 shadow-emerald-500/10' : isError ? 'border-red-500/50 shadow-red-500/10' : 'border-white/10'} rounded-3xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-sm w-full text-center transition-all duration-300`}>
+          <div className="relative w-14 h-14 flex items-center justify-center">
+            {isSuccess ? (
+              <div className="w-12 h-12 rounded-full bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            ) : isError ? (
+              <div className="w-12 h-12 rounded-full bg-red-500/20 border-2 border-red-500 text-red-400 flex items-center justify-center shadow-lg animate-in zoom-in-50 duration-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </div>
+            ) : (
+              <>
+                <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 animate-ping"></div>
+                <div className="w-10 h-10 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+              </>
+            )}
+          </div>
+          <div className="flex flex-col items-center gap-1.5 w-full">
+            <p className={`font-black text-xs uppercase tracking-[0.2em] ${isSuccess ? 'text-emerald-400' : isError ? 'text-red-400' : 'text-white'}`}>
+              {isSuccess ? 'Judul Berhasil Diperbarui!' : isError ? 'Gagal Memperbarui Judul' : status}
+            </p>
+            <p className={`text-[11px] font-medium leading-relaxed px-2 ${isSuccess ? 'text-emerald-200/90 font-semibold' : isError ? 'text-red-200/90 font-semibold' : 'text-white/50'}`}>
+              {isFinished ? displayMessage : 'Mohon tunggu sebentar ya sayang.. 💦'}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div 
