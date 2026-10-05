@@ -1767,6 +1767,17 @@ export const generatePAP = async (
   const hasPreviousPap = !!latestPap?.image;
   const isContinuingOutfit = latestPap && effectiveConfig.currentOutfit === latestPap.outfit;
 
+  // Cari PAP Full-Body / PAP sebelumnya dari sesi outfit yang sama (misal PAP 1 saat PAP 2 half-body)
+  const fullBodyPap = papsInHistory.length > 1 ? papsInHistory.find((p, idx) => {
+    if (idx === 0) return false; // Abaikan latestPap
+    const isSameOutfit = p.outfit && latestPap?.outfit && (
+      p.outfit.toLowerCase() === latestPap.outfit.toLowerCase() || 
+      p.outfit.toLowerCase().includes(latestPap.outfit.toLowerCase().slice(0, 10))
+    );
+    const isRecent = latestPap ? (latestPap.timestamp - p.timestamp < 4 * 60 * 60 * 1000) : false;
+    return isSameOutfit || isRecent;
+  }) || (papsInHistory.length > 1 ? papsInHistory[1] : null) : null;
+
   const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.text || '';
   const combinedTextForCheck = `${lowCaption} ${lastUserMsg.toLowerCase()}`;
 
@@ -2021,6 +2032,17 @@ Retain the EXACT SAME ROOM with previous PAP (identical bedroom layout, exact sa
           translatorParts.push({ text: `REFERENCE IMAGE 2 (PREVIOUS PAP - FULL OUTFIT DNA & ROOM CONTINUITY): Extract and match the exact outfit clothing details and the continuous room/bedding setting.` });
         }
         translatorParts.push({ inlineData: { mimeType, data } });
+
+        // JIKA ADA FULL-BODY PAP DARI SESI YANG SAMA (misal PAP 1 saat PAP 2 half-body)
+        // HIRARKI KETAT: Masukkan HANYA jika user TIDAK mengunggah gambar baru & TIDAK meminta ganti baju/lepas baju
+        if (fullBodyPap?.image && fullBodyPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
+          const [fbHeader, fbData] = fullBodyPap.image.split(',');
+          const fbMimeType = fbHeader.split(':')[1]?.split(';')[0] || 'image/jpeg';
+          translatorParts.push({ text: `REFERENCE IMAGE 3 (FULL-BODY OUTFIT PATTERN & LOWER SKIRT/BOTTOM REFERENCE):
+1. FULL-BODY OUTFIT PATTERN CONTINUITY: Reference Image 3 displays the full-body view of the same continuous outfit (${analyzedOutfit}).
+2. LOWER GARMENT DETAILS: Faithfully copy and match the exact lower garment/skirt length, fabric textures, gold embroidery, motifs, and hem details from Reference Image 3 when generating a full-body or wide shot!` });
+          translatorParts.push({ inlineData: { mimeType: fbMimeType, data: fbData } });
+        }
       }
     }
 
@@ -2434,6 +2456,13 @@ Retain the EXACT SAME ROOM with previous PAP (identical bedroom layout, exact sa
       } else if (hasPreviousPap && latestPap?.image) {
         // 1. Jika TIDAK ada foto referensi dari user -> PAP sebelumnya (referensi pakaian dan ruangan) masuk sebagai Image 2 (Slot 2)
         extraRefImage = latestPap.image;
+
+        // 2. SOLUSI HIRARKI SLOT KETAT & MULTI-PAP SAMPLING:
+        // Jika PAP terakhir (PAP 2) berpotongan half-body dan ada PAP full-body sebelumnya (PAP 1 / fullBodyPap) dari sesi outfit yang sama,
+        // masukkan `fullBodyPap.image` ke Gallery (Slot 3) HANYA jika user tidak mengunggah gambar baru & tidak meminta ganti baju/lepas baju!
+        if (fullBodyPap?.image && fullBodyPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
+          additionalImages.push(fullBodyPap.image);
+        }
       }
 
       // Menyelaraskan seluruh gambar referensi (Slot 2 & Slot 3+) dengan rasio Base/Target (Image 1) menggunakan Black Fill (Letterbox/Pillarbox)
