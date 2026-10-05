@@ -1446,7 +1446,9 @@ const ChatView: React.FC<ChatViewProps> = ({
         setMetadataStatus("Menyiapkan Metadata Audio...");
         try {
           const { addMetadataToMp3, convertPcmToMp3 } = await import('../services/audioMetadata');
-          const msg = msgId ? messages.find(m => m.id === msgId) : activeThread.find(m => m.audio === urlOrBase64);
+          const msg = msgId 
+            ? messages.find(m => m.id === msgId) 
+            : activeThread.find(m => m.audio === urlOrBase64 || m.attachments?.some(att => att.data === urlOrBase64));
           
           // Deteksi apakah ini PCM (biasanya dari backup lama atau format mentah)
           // MP3 biasanya mulai dengan 0xFF 0xFB atau 'ID3'
@@ -1466,21 +1468,22 @@ const ChatView: React.FC<ChatViewProps> = ({
           }
 
           if (msg) {
-            const trackNumber = activeThread.indexOf(msg) + 1;
+            const trackNumber = Math.max(1, activeThread.indexOf(msg) + 1);
             let audioTitle = msg.audioTitle;
+            const textContent = (msg.text || '').trim() || (msg.attachments?.find(att => att.data === urlOrBase64)?.name || `Audio ${config.name}`);
             
-            // Jika belum ada judul pintar (misal audio lama), generate sekarang
+            // Jika belum ada judul pintar (misal audio lama atau audio unggahan), generate sekarang
             if (!audioTitle) {
               try {
                 setMetadataStatus("Generate Judul Pintar...");
-                audioTitle = await generateSmartTitle(msg.text, userProfile.geminiApiKey, activeThread);
+                audioTitle = await generateSmartTitle(textContent, userProfile.geminiApiKey, activeThread);
                 // Update state agar tersimpan permanen
                 setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, audioTitle } : m));
                 // Update fileName agar file yang didownload pakai judul baru
                 fileName = `${audioTitle}.mp3`;
               } catch (e) {
                 console.warn("Gagal generate smart title on-the-fly:", e);
-                audioTitle = fileName.replace('.mp3', '');
+                audioTitle = fileName.replace(/\.[^/.]+$/, '');
               }
             }
             
@@ -1492,10 +1495,11 @@ const ChatView: React.FC<ChatViewProps> = ({
               "Lumina AI Memories",
               config.profilePic || undefined,
               trackNumber.toString(),
-              msg.text
+              textContent
             );
             data = mp3WithMetadata;
             finalMime = 'audio/mpeg';
+            if (!fileName.endsWith('.mp3')) fileName = `${fileName.replace(/\.[^/.]+$/, '')}.mp3`;
           }
         } catch (metaErr) {
           console.error("Failed to process audio during download:", metaErr);

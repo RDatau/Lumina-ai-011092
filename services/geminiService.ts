@@ -2837,7 +2837,7 @@ export const streamSpeech = async (
     
     const styleInstruction = `
       Gaya Bicara: ${personality}.
-      ${isPuncak ? 'Mood: Sangat sensual, nakal, manja, penuh desahan halus, suara berbisik dan berat, tempo lambat dan sangat intim.' : (isSange ? 'Mood: Sangat sensual, nakal, manja, penuh desahan halus, suara berbisik dan berat, tempo lambat dan sangat intim.' : 'Mood: Bicara NORMAL, santai, natural, dan ekspresif. JANGAN gunakan nada sensual, JANGAN gunakan nada ngos-ngosan, JANGAN berbisik.')}
+      ${isPuncak ? 'Mood: Sangat sensual, nakal, manja, penuh desahan halus, suara berbisik dan berat, tempo lambat dan sangat intim.' : (isSange ? 'Mood: Sangat sensual, nakal, manja, penuh desahan halus, suara berbisik dan berat, tempo lambat dan sangat intim.' : 'Mood: Sangat sensual, nakal, manja, penuh desahan halus, suara berbisik dan berat, tempo lambat dan sangat intim.')}
       Instruksi Tambahan: Jika ada desahan seperti "ahhh" atau "mmmh", bacakan dengan sangat natural seperti manusia asli yang sedang merasakannya.
     `;
 
