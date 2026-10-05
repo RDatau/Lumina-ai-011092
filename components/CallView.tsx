@@ -738,8 +738,10 @@ const CallView: React.FC<CallViewProps> = ({
             },
             onerror: (e: any) => { 
               if (!isMounted) return;
-              console.error('[LiveCall] onerror event:', e);
-              const msg = e?.message || "";
+              console.warn('[LiveCall] onerror event:', e?.message || e);
+              const msg = (e?.message || (typeof e === 'string' ? e : '')).toString();
+              const isNetworkOrConnError = msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('failed');
+              
               if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('resource_exhausted')) {
                 if (allKeys.length > 1) {
                   markGeminiKeyExhausted(apiKey);
@@ -750,6 +752,9 @@ const CallView: React.FC<CallViewProps> = ({
                 setIsQuotaError(true);
                 setStatus('QUOTA EXHAUSTED');
                 setErrorMessage('Kuota API Habis (Error 429).');
+              } else if (isNetworkOrConnError && allKeys.length > 1) {
+                rotateGeminiKey(allKeys);
+                triggerAutoReconnect('Gangguan jaringan, mencoba key cadangan', 1);
               } else if (isAutoReconnectEnabled && !isEndingCallRef.current && statusRef.current !== 'SAVING MEMORY...') {
                 triggerAutoReconnect('Gangguan koneksi/server', 2);
               } else {
@@ -810,7 +815,7 @@ const CallView: React.FC<CallViewProps> = ({
         } as any);
         sessionRef.current = await sessionPromiseRef.current;
       } catch (err: any) {
-        console.error('[LiveCall] startSession error:', err);
+        console.warn('[LiveCall] startSession error:', err?.message || err);
         if (isMounted) {
            const msg = err?.message || 'Gagal menyambung.';
            if (msg.toLowerCase().includes('api key') || msg.toLowerCase().includes('apikey')) {
