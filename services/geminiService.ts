@@ -2824,7 +2824,7 @@ export const streamSpeech = async (
     
     const styleInstruction = `
       Gaya Bicara: ${personality}.
-      'Mood: Sangat marah, teriak, groaning, kasar, cepat dan sangat emosional.'
+      'Mood: Nada tinggi seperti orang marah'
       Instruksi Tambahan: Jika ada desahan seperti "ahhh" atau "mmmh", bacakan dengan sangat natural seperti manusia asli yang sedang merasakannya.
     `;
 
