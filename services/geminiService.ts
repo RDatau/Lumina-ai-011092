@@ -1767,16 +1767,31 @@ export const generatePAP = async (
   const hasPreviousPap = !!latestPap?.image;
   const isContinuingOutfit = latestPap && effectiveConfig.currentOutfit === latestPap.outfit;
 
-  // Cari PAP Full-Body / PAP sebelumnya dari sesi outfit yang sama (misal PAP 1 saat PAP 2 half-body)
-  const fullBodyPap = papsInHistory.length > 1 ? papsInHistory.find((p, idx) => {
-    if (idx === 0) return false; // Abaikan latestPap
+  // 360-Degree Omnidirectional PAP Angle Sampling (Front, Back, Side, Full-Body):
+  const sameOutfitPaps = papsInHistory.filter((p, idx) => {
+    if (idx === 0) return false; // Abaikan latestPap yang sudah ada di Slot 2
     const isSameOutfit = p.outfit && latestPap?.outfit && (
       p.outfit.toLowerCase() === latestPap.outfit.toLowerCase() || 
       p.outfit.toLowerCase().includes(latestPap.outfit.toLowerCase().slice(0, 10))
     );
     const isRecent = latestPap ? (latestPap.timestamp - p.timestamp < 4 * 60 * 60 * 1000) : false;
     return isSameOutfit || isRecent;
-  }) || (papsInHistory.length > 1 ? papsInHistory[1] : null) : null;
+  });
+
+  const frontViewPap = sameOutfitPaps.find(p => {
+    const text = `${p.imagePrompt || ''} ${p.text || ''}`.toLowerCase();
+    return text.includes('front') || text.includes('depan') || text.includes('dada') || text.includes('wajah');
+  }) || sameOutfitPaps[0] || null;
+
+  const backViewPap = sameOutfitPaps.find(p => {
+    const text = `${p.imagePrompt || ''} ${p.text || ''}`.toLowerCase();
+    return text.includes('back') || text.includes('belakang') || text.includes('punggung');
+  }) || null;
+
+  const fullBodyPap = sameOutfitPaps.find(p => {
+    const text = `${p.imagePrompt || ''} ${p.text || ''}`.toLowerCase();
+    return text.includes('full body') || text.includes('full-body') || text.includes('seluruh') || text.includes('berdiri');
+  }) || sameOutfitPaps[0] || null;
 
   const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.text || '';
   const combinedTextForCheck = `${lowCaption} ${lastUserMsg.toLowerCase()}`;
@@ -2033,15 +2048,25 @@ Retain the EXACT SAME ROOM with previous PAP (identical bedroom layout, exact sa
         }
         translatorParts.push({ inlineData: { mimeType, data } });
 
-        // JIKA ADA FULL-BODY PAP DARI SESI YANG SAMA (misal PAP 1 saat PAP 2 half-body)
+        // JIKA ADA PAP KUMPULAN SUDUT PANDANG (360-Degree Angle Matrix) DARI SESI YANG SAMA
         // HIRARKI KETAT: Masukkan HANYA jika user TIDAK mengunggah gambar baru & TIDAK meminta ganti baju/lepas baju
-        if (fullBodyPap?.image && fullBodyPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
-          const [fbHeader, fbData] = fullBodyPap.image.split(',');
+        const compPap = frontViewPap?.image !== latestPap.image ? frontViewPap : (fullBodyPap?.image !== latestPap.image ? fullBodyPap : null);
+        if (compPap?.image && compPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
+          const [fbHeader, fbData] = compPap.image.split(',');
           const fbMimeType = fbHeader.split(':')[1]?.split(';')[0] || 'image/jpeg';
-          translatorParts.push({ text: `REFERENCE IMAGE 3 (FULL-BODY OUTFIT PATTERN & LOWER SKIRT/BOTTOM REFERENCE):
-1. FULL-BODY OUTFIT PATTERN CONTINUITY: Reference Image 3 displays the full-body view of the same continuous outfit (${analyzedOutfit}).
-2. LOWER GARMENT DETAILS: Faithfully copy and match the exact lower garment/skirt length, fabric textures, gold embroidery, motifs, and hem details from Reference Image 3 when generating a full-body or wide shot!` });
+          translatorParts.push({ text: `REFERENCE IMAGE 3 (360-DEGREE OUTFIT CONTINUITY - COMPLEMENTARY ANGLE REFERENCE):
+1. OUTFIT PATTERN CONTINUITY: Reference Image 3 displays a complementary angle/full-body view of the exact same continuous outfit (${analyzedOutfit}).
+2. COMPLEMENTARY GARMENT DETAILS: Faithfully copy and match any missing upper chest/neckline, backless/rear zipper cut, lower skirt/pants length, fabric textures, embroidery, motifs, and hem details from Reference Image 3 when generating the new shot!` });
           translatorParts.push({ inlineData: { mimeType: fbMimeType, data: fbData } });
+
+          // Tampilan Sudut Belakang Tambahan (Slot 4) jika ada dan berbeda
+          if (backViewPap?.image && backViewPap.image !== latestPap.image && backViewPap.image !== compPap.image) {
+            const [bHeader, bData] = backViewPap.image.split(',');
+            const bMimeType = bHeader.split(':')[1]?.split(';')[0] || 'image/jpeg';
+            translatorParts.push({ text: `REFERENCE IMAGE 4 (ADDITIONAL REAR/SIDE ANGLE OUTFIT PATTERN REFERENCE):
+Extract additional rear/side outfit details (backless cut, back zipper, rear pockets, side seams) from Reference Image 4 for complete 360-degree 3D outfit synthesis!` });
+            translatorParts.push({ inlineData: { mimeType: bMimeType, data: bData } });
+          }
         }
       }
     }
@@ -2457,11 +2482,14 @@ Retain the EXACT SAME ROOM with previous PAP (identical bedroom layout, exact sa
         // 1. Jika TIDAK ada foto referensi dari user -> PAP sebelumnya (referensi pakaian dan ruangan) masuk sebagai Image 2 (Slot 2)
         extraRefImage = latestPap.image;
 
-        // 2. SOLUSI HIRARKI SLOT KETAT & MULTI-PAP SAMPLING:
-        // Jika PAP terakhir (PAP 2) berpotongan half-body dan ada PAP full-body sebelumnya (PAP 1 / fullBodyPap) dari sesi outfit yang sama,
-        // masukkan `fullBodyPap.image` ke Gallery (Slot 3) HANYA jika user tidak mengunggah gambar baru & tidak meminta ganti baju/lepas baju!
-        if (fullBodyPap?.image && fullBodyPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
-          additionalImages.push(fullBodyPap.image);
+        // 2. SOLUSI HIRARKI SLOT KETAT & 360-DEGREE MULTI-PAP SAMPLING:
+        const compPap = frontViewPap?.image !== latestPap.image ? frontViewPap : (fullBodyPap?.image !== latestPap.image ? fullBodyPap : null);
+        if (compPap?.image && compPap.image !== latestPap.image && !isExplicitOutfitChange && !isEffectiveUndress) {
+          additionalImages.push(compPap.image); // Slot 3 (Front / Full Body Complementary)
+
+          if (backViewPap?.image && backViewPap.image !== latestPap.image && backViewPap.image !== compPap.image) {
+            additionalImages.push(backViewPap.image); // Slot 4 (Rear / Side Complementary)
+          }
         }
       }
 
