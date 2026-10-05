@@ -2234,7 +2234,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             className={`flex items-center justify-between p-1.5 px-4 md:p-2 md:px-6 rounded-full shadow-2xl transition-all duration-300`} 
             style={glassStyles}
           >
-            <div className="flex items-center gap-0.5 md:gap-1">
+            <div className="flex items-center gap-0.5 md:gap-1 flex-1 min-w-0 mr-1 md:mr-2">
               <button onClick={onBackToList} className={`p-2 hover:bg-white/10 rounded-full transition-all ${dynamicIconColor} hover:${dynamicTextColor}`} title="Kembali ke Daftar">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
@@ -2248,22 +2248,27 @@ const ChatView: React.FC<ChatViewProps> = ({
               </button>
               
               <div 
-                className="relative group/avatar cursor-pointer ml-0.5" 
+                className="relative group/avatar cursor-pointer ml-0.5 flex-shrink-0" 
                 onClick={() => setShowProfilePreview(true)}
                 onContextMenu={handleProfilePicMenu}
                 onTouchStart={handleProfilePicMenu}
                 onTouchMove={handleTouchMoveInternal}
                 onTouchEnd={handleTouchEndInternal}
+                title="Lihat Foto Profil"
               >
                 <img src={config.profilePic || undefined} className={`w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border ${isBackgroundDark ? 'border-white/20' : 'border-black/20'} shadow-md transition-transform group-hover/avatar:scale-105 active:scale-95`} alt="Avatar" />
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border border-black animate-pulse"></div>
               </div>
               
-              <div className="ml-1.5 min-w-0 select-none">
+              <div 
+                onClick={onEdit} 
+                className="ml-1.5 flex-1 min-w-0 h-full flex flex-col justify-center select-none cursor-pointer py-1 px-2 rounded-xl hover:bg-white/10 active:scale-[0.99] transition-all"
+                title="Buka Pengaturan Karakter"
+              >
                 <div className="flex items-center gap-1.5">
-                  <h2 className={`font-bold text-sm md:text-base leading-tight tracking-tight truncate max-w-[100px] md:max-w-[180px] ${dynamicTextColor}`}>{config.name}</h2>
+                  <h2 className={`font-bold text-sm md:text-base leading-tight tracking-tight truncate max-w-[120px] sm:max-w-[200px] md:max-w-[320px] ${dynamicTextColor}`}>{config.name}</h2>
                   {userProfile.geminiApiKey && (
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20" title="Menggunakan API Key Pribadi">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0" title="Menggunakan API Key Pribadi">
                       <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
                       <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest">API OK</span>
                     </div>
