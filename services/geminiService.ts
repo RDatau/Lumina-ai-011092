@@ -1284,7 +1284,34 @@ export const generateAgentResponse = async (
   }, effectiveUserProfile);
 };
 
-const previousPapAnalysisCache = new Map<string, { outfitPrompt: string; roomPrompt: string; isNude: boolean }>();
+const previousPapAnalysisCache = new Map<string, { outfitPrompt: string; roomPrompt: string; placementSurface?: string; isNude: boolean }>();
+
+export const derivePlacementSurface = (roomStr: string): string => {
+  if (!roomStr) return "on a suitable nearby surface in the setting";
+  const low = roomStr.toLowerCase();
+  if (low.includes('beach') || low.includes('sand') || low.includes('pantai') || low.includes('pasir')) {
+    return "on a beach towel on the sand nearby";
+  }
+  if (low.includes('pool') || low.includes('kolam') || low.includes('swimming') || low.includes('renang')) {
+    return "on a lounge chair by the pool";
+  }
+  if (low.includes('sofa') || low.includes('couch') || low.includes('living room') || low.includes('ruang tamu')) {
+    return "on one side of the sofa";
+  }
+  if (low.includes('car') || low.includes('mobil') || low.includes('vehicle')) {
+    return "on the passenger seat";
+  }
+  if (low.includes('bath') || low.includes('bathroom') || low.includes('shower') || low.includes('kamar mandi')) {
+    return "on the towel rack or vanity counter";
+  }
+  if (low.includes('bed') || low.includes('bedroom') || low.includes('kasur') || low.includes('ranjang') || low.includes('kamar')) {
+    return "on one corner of the bed frame";
+  }
+  if (low.includes('chair') || low.includes('kursi') || low.includes('bench')) {
+    return "on the nearby chair";
+  }
+  return "on a suitable nearby surface in the setting";
+};
 
 export interface GarmentBreakdown {
   isDress: boolean; // true jika 1 potong gaun/dress/daster/jumpsuit/nightdress
@@ -1487,14 +1514,20 @@ export const cleanRawCaptionToPureGarment = (text: string): string => {
  * dan ruangan (furnitur, kasur, sprei, pencahayaan) secara terpisah dalam bentuk prompt visual murni.
  */
 export const analyzePreviousPapImage = async (
-  imageBase64: string,
-  outfitHint?: string,
+  imageBase64: string, 
+  outfitHint?: string, 
   userProfile?: UserProfile,
   onStatusUpdate?: (msg: string) => void
-): Promise<{ outfitPrompt: string; roomPrompt: string; isNude: boolean }> => {
+): Promise<{ outfitPrompt: string; roomPrompt: string; placementSurface: string; isNude: boolean }> => {
   const cacheKey = `${imageBase64.length}_${imageBase64.slice(0, 100)}`;
   if (previousPapAnalysisCache.has(cacheKey)) {
-    return previousPapAnalysisCache.get(cacheKey)!;
+    const cached = previousPapAnalysisCache.get(cacheKey)!;
+    return {
+      outfitPrompt: cached.outfitPrompt,
+      roomPrompt: cached.roomPrompt,
+      placementSurface: cached.placementSurface || derivePlacementSurface(cached.roomPrompt),
+      isNude: cached.isNude
+    };
   }
 
   try {
@@ -1510,10 +1543,11 @@ export const analyzePreviousPapImage = async (
             role: 'user',
             parts: [
               {
-                text: `Analyze this image with 100% forensic precision. Return a strict valid JSON object with EXACTLY three fields:
+                text: `Analyze this image with 100% forensic precision. Return a strict valid JSON object with EXACTLY four fields:
 1. "outfitPrompt": Describe ONLY the exact clothes she/he is wearing in this image. Include exact primary color(s), fabric(s), textures, motif, corak, garment type, and whether it is a 1-piece (dress/daster), 2-piece (top + bottom, or 2-piece lingerie/bikini), or gamis+hijab. (e.g. "a navy blue floral silk daster nightdress" or "a white sleeveless ribbed crop top and black denim shorts"). DO NOT comment on her/his pose, face, body, or background. If she is already completely unclothed/naked/topless/bare skin, output strictly "unclothed, natural bare skin".
-2. "roomPrompt": Describe ONLY the room interior and setting: bed, sheets, headboard, wall colors, lighting, and ambiance (e.g. "an intimate bedroom with warm bedside lamp lighting, a wooden headboard, white bedsheets, and soft beige walls"). DO NOT mention the person or clothes.
-3. "isNude": A boolean (true if she is completely undressed, topless, or unclothed; false if she is wearing regular clothes).
+2. "roomPrompt": Describe ONLY the room interior/location setting: environment, background, bed, sheets, headboard, wall colors, lighting, or outdoor landscape (e.g. "an intimate bedroom with warm bedside lamp lighting" or "a tropical sunny beach with white sand and blue ocean waves"). DO NOT mention the person or clothes.
+3. "placementSurface": Suggest the most logical, natural nearby surface or spot in THIS SPECIFIC environment where removed clothes would be set aside (e.g. "on one corner of the bed frame", "on a nearby chair", "on a beach towel on the sand", "on a lounge chair by the pool", "on a sofa", "on the side table").
+4. "isNude": A boolean (true if she is completely undressed, topless, or unclothed; false if she is wearing regular clothes).
 
 Return ONLY raw JSON, with no markdown code fences or backticks.`
               },
@@ -1537,10 +1571,13 @@ Return ONLY raw JSON, with no markdown code fences or backticks.`
         ? parsed.outfitPrompt.trim()
         : cleanRawCaptionToPureGarment(outfitHint || '');
       const outfitPrompt = cleanRawCaptionToPureGarment(rawOutfit);
+      const roomPrompt = typeof parsed.roomPrompt === 'string' && parsed.roomPrompt.trim() ? parsed.roomPrompt.trim() : 'identical environment setting';
+      const placementSurface = typeof parsed.placementSurface === 'string' && parsed.placementSurface.trim() ? parsed.placementSurface.trim() : derivePlacementSurface(roomPrompt);
 
       return {
         outfitPrompt,
-        roomPrompt: typeof parsed.roomPrompt === 'string' && parsed.roomPrompt.trim() ? parsed.roomPrompt.trim() : 'identical bedroom interior with bed, sheets, and warm lighting',
+        roomPrompt,
+        placementSurface,
         isNude: !!parsed.isNude
       };
     }, userProfile, onStatusUpdate);
@@ -1551,9 +1588,11 @@ Return ONLY raw JSON, with no markdown code fences or backticks.`
     console.warn("[analyzePreviousPapImage] Vision analysis fallback:", error);
     const isNude = (outfitHint || '').toLowerCase().includes('nude') || (outfitHint || '').toLowerCase().includes('naked') || (outfitHint || '').toLowerCase().includes('telanjang');
     const fallbackOutfit = cleanRawCaptionToPureGarment(outfitHint || 'her/his previous outfit');
+    const fallbackRoom = 'identical environment setting';
     const fallback = {
       outfitPrompt: fallbackOutfit,
-      roomPrompt: 'identical bedroom interior with bed, sheets, and warm lighting',
+      roomPrompt: fallbackRoom,
+      placementSurface: derivePlacementSurface(fallbackRoom),
       isNude
     };
     return fallback;
@@ -1897,7 +1936,7 @@ export const generatePAP = async (
   const isExplicitOutfitChange = !isExplicitUndress && (outfitChangeRegex.test(lowCaption) || outfitChangeKeywords.some(kw => lowCaption.includes(kw)));
 
   // 1. Analisa PAP sebelumnya (Pakaian murni & Ruangan murni) atau siapkan First PAP Context
-  let previousPapAnalysis: { outfitPrompt: string; roomPrompt: string; isNude: boolean } | null = null;
+  let previousPapAnalysis: { outfitPrompt: string; roomPrompt: string; placementSurface?: string; isNude: boolean } | null = null;
   if (hasPreviousPap && latestPap?.image) {
     onStatusUpdate?.("Menganalisa pakaian dan ruangan dari PAP sebelumnya...");
     previousPapAnalysis = await analyzePreviousPapImage(latestPap.image, latestPap.outfit, effectiveUserProfile, onStatusUpdate);
@@ -1989,8 +2028,10 @@ export const generatePAP = async (
     ? `Make the single person in image 1 do the exact same pose as shown in image 2. The person in Image 1 must wear her/his exact same outfit (${analyzedOutfit}) and be in the exact same room: ${analyzedRoom}. CRITICAL: Strictly EXACTLY ONE PERSON in frame. Do NOT render any second person or clone from image 2 or ${papSlotRef} into the background.`
     : "Make the single person in image 1 do the exact same pose as shown in image 2. CRITICAL: Strictly EXACTLY ONE PERSON in frame. Do NOT render any second person or clone from image 2 into the background.";
 
+  const placementSpot = previousPapAnalysis?.placementSurface || derivePlacementSurface(analyzedRoom);
+
   const WEAR_UPLOADED_OUTFIT_PROMPT = hasPreviousPap
-    ? `Make Character 1 from Image 1 wear the exact outfit shown in Image 2. Image 1 is strictly for facial identity, hairstyle, skin tone, and biometrics. Image 2 is strictly a visual clothing reference (ignore any person or room in Image 2). Room setting: ${analyzedRoom}. Her previous outfit (${analyzedOutfit}) extracted from Image 3 is neatly placed in the room context on the edge of the bed or chair. ${englishCaption ? 'Pose/Action: ' + englishCaption : ''}`
+    ? `Make Character 1 from Image 1 wear the exact outfit shown in Image 2. Image 1 is strictly for facial identity, hairstyle, skin tone, and biometrics. Image 2 is strictly a visual clothing reference (ignore any person or room in Image 2). Room/location setting: ${analyzedRoom}. Her previous outfit (${analyzedOutfit}) extracted from Image 3 is neatly placed in the setting ${placementSpot}. ${englishCaption ? 'Pose/Action: ' + englishCaption : ''}`
     : `Make Character 1 from Image 1 wear the exact outfit shown in Image 2. Image 1 is strictly for facial identity, hairstyle, skin tone, and biometrics. Image 2 is strictly a visual clothing reference (ignore any person or room in Image 2). ${englishCaption ? 'Pose/Action: ' + englishCaption : ''}`;
 
   const isGarmentInHandOrSetAside = (text: string) => {
@@ -2003,32 +2044,32 @@ export const generatePAP = async (
   if (isBottomOnlyUndress) {
     if (garmentBreakdown.isDress) {
       UNDRESS_PROMPT = isHandledInitially
-        ? `PARTIAL UNDRESS (DRESS REMOVAL): Character 1 has pulled up or removed her dress (${dressGarment}). Her hips, waist, and legs are natural bare skin. Her removed dress is held in her hands. The bed surface is clean and smooth.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
-        : `PARTIAL UNDRESS (DRESS REMOVAL): Character 1 has pulled up or removed her dress (${dressGarment}). Her hips, waist, and legs are natural bare skin. Her removed dress rests neatly on one corner of the bed frame. The rest of the room is tidy.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
+        ? `PARTIAL UNDRESS (DRESS REMOVAL): Character 1 has pulled up or removed her dress (${dressGarment}). Her hips, waist, and legs are natural bare skin. Her removed dress is held in her hands. The setting is clean.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
+        : `PARTIAL UNDRESS (DRESS REMOVAL): Character 1 has pulled up or removed her dress (${dressGarment}). Her hips, waist, and legs are natural bare skin. Her removed dress rests neatly ${placementSpot}. The rest of the setting is tidy.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
     } else {
       UNDRESS_PROMPT = isHandledInitially
-        ? `PARTIAL UNDRESS (BOTTOMLESS ONLY): Character 1 is wearing her top (${topGarment}) on her torso. Her hips and legs are natural bare skin. Her removed ${bottomGarment} is held in her hands. The bed surface is clean and smooth.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
-        : `PARTIAL UNDRESS (BOTTOMLESS ONLY): Character 1 is wearing her top (${topGarment}) on her torso. Her hips and legs are natural bare skin. Her removed ${bottomGarment} rests neatly on one corner of the bed frame.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
+        ? `PARTIAL UNDRESS (BOTTOMLESS ONLY): Character 1 is wearing her top (${topGarment}) on her torso. Her hips and legs are natural bare skin. Her removed ${bottomGarment} is held in her hands. The setting is clean.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
+        : `PARTIAL UNDRESS (BOTTOMLESS ONLY): Character 1 is wearing her top (${topGarment}) on her torso. Her hips and legs are natural bare skin. Her removed ${bottomGarment} rests neatly ${placementSpot}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
     }
   } else if (isTopOnlyUndress) {
     if (garmentBreakdown.isDress) {
       UNDRESS_PROMPT = isHandledInitially
-        ? `PARTIAL UNDRESS (TOPLESS DRESS REMOVAL): Character 1 has pulled down her dress (${dressGarment}). Her upper body, chest, and shoulders are natural bare skin. Her dress is held in her hands. The bed surface is clean and smooth.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
-        : `PARTIAL UNDRESS (TOPLESS DRESS REMOVAL): Character 1 has pulled down her dress (${dressGarment}). Her upper body, chest, and shoulders are natural bare skin. Her dress rests neatly on one corner of the bed frame.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
+        ? `PARTIAL UNDRESS (TOPLESS DRESS REMOVAL): Character 1 has pulled down her dress (${dressGarment}). Her upper body, chest, and shoulders are natural bare skin. Her dress is held in her hands. The setting is clean.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
+        : `PARTIAL UNDRESS (TOPLESS DRESS REMOVAL): Character 1 has pulled down her dress (${dressGarment}). Her upper body, chest, and shoulders are natural bare skin. Her dress rests neatly ${placementSpot}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
     } else {
       UNDRESS_PROMPT = isHandledInitially
-        ? `PARTIAL UNDRESS (TOPLESS ONLY): Character 1 is wearing her bottom (${bottomGarment}). Her chest, torso, and shoulders are natural bare skin. Her removed ${topGarment} is held in her hands. The bed surface is clean and smooth.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
-        : `PARTIAL UNDRESS (TOPLESS ONLY): Character 1 is wearing her bottom (${bottomGarment}). Her chest, torso, and shoulders are natural bare skin. Her removed ${topGarment} rests neatly on one corner of the bed frame.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
+        ? `PARTIAL UNDRESS (TOPLESS ONLY): Character 1 is wearing her bottom (${bottomGarment}). Her chest, torso, and shoulders are natural bare skin. Her removed ${topGarment} is held in her hands. The setting is clean.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
+        : `PARTIAL UNDRESS (TOPLESS ONLY): Character 1 is wearing her bottom (${bottomGarment}). Her chest, torso, and shoulders are natural bare skin. Her removed ${topGarment} rests neatly ${placementSpot}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
     }
   } else {
     if (garmentBreakdown.isDress) {
       UNDRESS_PROMPT = isHandledInitially
-        ? `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed dress (${dressGarment}) is held in her hands. The room setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
-        : `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed dress (${dressGarment}) rests neatly folded on one corner of the bed frame. The room setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
+        ? `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed dress (${dressGarment}) is held in her hands. The location setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
+        : `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed dress (${dressGarment}) rests neatly folded ${placementSpot}. The location setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
     } else {
       UNDRESS_PROMPT = isHandledInitially
-        ? `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed outfit (${analyzedOutfit}) is held in her hands. The room setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
-        : `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed outfit (${analyzedOutfit}) rests neatly folded on one corner of the bed frame. The room setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
+        ? `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed outfit (${analyzedOutfit}) is held in her hands. The location setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`
+        : `FULL UNDRESS: Character 1 is completely undressed (100% natural bare skin, full nudity). Her removed outfit (${analyzedOutfit}) rests neatly folded ${placementSpot}. The location setting is ${analyzedRoom}.${englishCaption ? ' Pose/Action: ' + englishCaption : ''}`;
     }
   }
 
@@ -2082,11 +2123,11 @@ ${identityNote}` });
       if (hasPreviousPap && latestPap?.image) {
         const [header, data] = latestPap.image.split(',');
         const mimeType = header.split(':')[1].split(';')[0];
-        translatorParts.push({ text: `REFERENCE IMAGE 3 (PREVIOUS PAP - EXACT SAME ROOM CONTINUITY & DISCARDED CLOTHES REFERENCE):
-1. EXACT SAME ROOM CONTINUITY: Retain the EXACT SAME ROOM with previous PAP (${analyzedRoom}).
+        translatorParts.push({ text: `REFERENCE IMAGE 3 (PREVIOUS PAP - EXACT SAME LOCATION CONTINUITY & DISCARDED CLOTHES REFERENCE):
+1. EXACT SAME LOCATION CONTINUITY: Retain the EXACT SAME LOCATION/SETTING with previous PAP (${analyzedRoom}).
 2. DISCARDED CLOTHES REFERENCE: If Character 1 is changing into the new outfit in Image 2 or stripping, her/his previous outfit was: ${analyzedOutfit}.
-3. STRICT MINIMALIST GARMENT COUNT RULE: Depict strictly ONLY the exact 1 to at most 3 specific pieces of clothing (${analyzedOutfit}) lying neatly on the edge of the bed. NEVER describe a messy laundry pile or excessive scattered fabrics!
-4. STRICT SOURCE RULE: The discarded clothes on the bed MUST be the outfit from Image 3 (${analyzedOutfit}), NEVER the clothes from Image 1 (Profile Pic)!` });
+3. STRICT MINIMALIST GARMENT COUNT RULE: Depict strictly ONLY the exact 1 to at most 3 specific pieces of clothing (${analyzedOutfit}) lying neatly ${placementSpot}. NEVER describe a messy laundry pile or excessive scattered fabrics!
+4. STRICT SOURCE RULE: The discarded clothes MUST be the outfit from Image 3 (${analyzedOutfit}), NEVER the clothes from Image 1 (Profile Pic)!` });
         translatorParts.push({ inlineData: { mimeType, data } });
       }
     } else {
@@ -2096,17 +2137,17 @@ ${identityNote}` });
         const mimeType = header.split(':')[1].split(';')[0];
         if (isExplicitUndress) {
           if (!isPreviousPapNude) {
-            translatorParts.push({ text: `REFERENCE IMAGE 2 (PREVIOUS PAP - EXACT SAME ROOM CONTINUITY & DISCARDED OUTFIT REFERENCE):
-1. EXACT SAME ROOM CONTINUITY: Retain the EXACT SAME ROOM with previous PAP (${analyzedRoom}).
+            translatorParts.push({ text: `REFERENCE IMAGE 2 (PREVIOUS PAP - EXACT SAME LOCATION CONTINUITY & DISCARDED OUTFIT REFERENCE):
+1. EXACT SAME LOCATION CONTINUITY: Retain the EXACT SAME LOCATION/SETTING with previous PAP (${analyzedRoom}).
 2. DISCARDED CLOTHES SOURCE & PLACEMENT RULE:
    - Reference Image 2 is the ONLY image to examine for discarded clothes. NEVER look at Image 1 (Profile Pic) for discarded clothes!
    - In Reference Image 2, Character 1 was wearing: ${analyzedOutfit}.
-   - On the edge of the bed lies strictly only that exact outfit (${analyzedOutfit}) as 1 or 2 neat pieces of cloth with matching colors.
+   - ${placementSpot.charAt(0).toUpperCase() + placementSpot.slice(1)} lies strictly only that exact outfit (${analyzedOutfit}) as 1 or 2 neat pieces of cloth with matching colors.
    - ABSOLUTE STRICT SOURCE RULE: The discarded clothes MUST be the outfit from Reference Image 2 (${analyzedOutfit}). Absolutely NEVER use or describe the clothes from Reference Image 1 (Profile Pic)!
    - CRITICAL SAFETY: The discarded clothes are strictly inanimate garments/fabric ONLY. Do NOT copy or clone any human body or person from Reference Image 2 into the background.` });
           } else {
-            translatorParts.push({ text: `REFERENCE IMAGE 2 (PREVIOUS PAP - EXACT SAME ROOM CONTINUITY):
-Retain the EXACT SAME ROOM with previous PAP (identical bedroom layout, exact same bed, sheets, headboard, wall colors, lighting, and ambiance). Character 1 remains completely undressed with natural bare skin.` });
+            translatorParts.push({ text: `REFERENCE IMAGE 2 (PREVIOUS PAP - EXACT SAME LOCATION CONTINUITY):
+Retain the EXACT SAME LOCATION/SETTING with previous PAP (${analyzedRoom}). Character 1 remains completely undressed with natural bare skin.` });
           }
         } else if (isExplicitOutfitChange) {
           translatorParts.push({ text: `REFERENCE IMAGE 2 (PREVIOUS PAP - ROOM/BACKGROUND ENVIRONMENT CONTINUITY): Retain the continuous room environment and setting from this image, but Character 1 is changing into the new requested outfit.` });
