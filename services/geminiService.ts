@@ -663,14 +663,22 @@ export const validateApiKey = async (apiKeyInput: string): Promise<{ valid: bool
 export const parseAgentText = (text: string): { reasoning: string, speech: string } => {
   if (!text) return { reasoning: "", speech: "" };
   
+  let reasoning = "";
+  let speech = "";
+
   // 1. Bersihkan tag sistem internal [WAKTU: ...] dan [CAPTION: ...] (bahkan jika multi-baris)
   let raw = text
     .replace(/\[WAKTU:[\s\S]*?\]/gi, '')
     .replace(/\[CAPTION:[\s\S]*?\]/gi, '')
     .trim();
   
-  // Bersihkan tag thinking/thought jika ada dari model
-  raw = raw.replace(/<(?:thought|think)>[\s\S]*?<\/(?:thought|think)>/gi, '').trim();
+  // Bersihkan dan ekstrak tag thinking/thought dari model
+  raw = raw.replace(/<(?:thought|think)>([\s\S]*?)<\/(?:thought|think)>/gi, (_, thoughtContent) => {
+    if (thoughtContent.trim()) {
+      reasoning += thoughtContent.trim() + " ";
+    }
+    return '';
+  }).trim();
 
   // Bersihkan blok kode yang khusus berisi sisa caption/internal prompt PAP agar tidak bocor
   raw = raw.replace(/```(?:caption|internal|image_prompt|pap)[\s\S]*?```/gi, '').trim();
@@ -701,16 +709,14 @@ export const parseAgentText = (text: string): { reasoning: string, speech: strin
     return placeholder;
   });
 
-  let reasoning = "";
-  let speech = "";
-
   // Split bagian teks biasa berdasarkan kalimat atau baris baru
   const parts = raw.split(/(?<=[.!?\n])\s+/);
 
   const strategyKeywords = [
     'flow:', 'thought:', 'strategy:', 'internal thinking:', 'meta reasoning:',
     'responding to user', 'maintaining persona', 'transitioning smoothly',
-    'picks up the thread'
+    'picks up the thread', 'proses berpikir:', 'penalaran:', 'analisis:', 'strategi:',
+    'alur:', 'pikiran:', 'internal:'
   ];
 
   parts.forEach(part => {
@@ -748,7 +754,23 @@ export const parseAgentText = (text: string): { reasoning: string, speech: strin
       cleanForCheck.startsWith("this response is") ||
       cleanForCheck.startsWith("my response will") ||
       cleanForCheck.includes("escalated the conversation") || 
-      cleanForCheck.includes("transitioning smoothly");
+      cleanForCheck.includes("transitioning smoothly") ||
+      // Pola meta & penalaran internal dalam Bahasa Indonesia
+      cleanForCheck.startsWith("merespons ") ||
+      cleanForCheck.startsWith("menganalisis ") ||
+      cleanForCheck.startsWith("mengingat ") ||
+      cleanForCheck.startsWith("konteks:") ||
+      cleanForCheck.startsWith("sebagai ") ||
+      cleanForCheck.startsWith("mempertahankan ") ||
+      cleanForCheck.startsWith("sesuai instruksi") ||
+      cleanForCheck.startsWith("pengguna meminta") ||
+      cleanForCheck.startsWith("pengguna ingin") ||
+      cleanForCheck.startsWith("user meminta") ||
+      cleanForCheck.startsWith("user ingin") ||
+      cleanForCheck.startsWith("karena user") ||
+      cleanForCheck.startsWith("karena pengguna") ||
+      cleanForCheck.startsWith("tujuan dari") ||
+      cleanForCheck.startsWith("dalam situasi ini");
 
     const hasStrategyHeader = 
       trimmed.toLowerCase().startsWith('**thought') || 

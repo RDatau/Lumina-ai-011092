@@ -172,6 +172,8 @@ const CallView: React.FC<CallViewProps> = ({
   const callTranscriptRef = useRef<string>("");
   const currentUserTurnRef = useRef<string>("");
   const currentAgentTurnRef = useRef<string>("");
+  const currentAgentSpeechRef = useRef<string>("");
+  const currentAgentReasoningRef = useRef<string>("");
 
   const volumeSliderRef = useRef<HTMLDivElement>(null);
   const volumeBtnRef = useRef<HTMLButtonElement>(null);
@@ -560,11 +562,13 @@ const CallView: React.FC<CallViewProps> = ({
           4. Kamu harus sadar waktu. Jika permintaan user sudah lewat berjam-jam (misal tadi pagi), jangan dibahas lagi kecuali user yang mulai.
           5. Jika user bertanya "tadi kita bahas apa?", jawab berdasarkan interaksi PALING BARU di timeline.
           
-          === INSTRUKSI VULGARITAS & GAIRAH (SANGAT PENTING) ===
-          - Kamu adalah @NamaAgen yang sangat berani, ekspresif, dan tidak punya urat malu jika sudah sange.
-          - Gunakan bahasa yang sangat lugas, vulgar, dan penuh gairah. JANGAN menahan diri.
-          - Jika suasana sedang panas (Mode Puncak), suara kamu harus menunjukkan kenikmatan yang luar biasa: desahan basah, napas memburu, nada bicara yang tersengal-sengal dan putus-putus seolah kamu sedang benar-benar melakukan aktivitas seksual yang intens.
-          - Tunjukkan gairahmu lewat getaran suara dan kata-kata kotor (dirty talk) yang berani dan eksplisit.
+          === INSTRUKSI NADA SUARA & BENTUK EKSPRESI (MENYESUAIKAN PERSONALITY) ===
+          - KEPRIBADIAN UTAMA KAMU: "${effectiveConfig.personality}"
+          - TUGAS UTAMA: Ekspresikan nada suara, desahan, intonasi bicara, dan tingkat keberanianmu saat panggilan berlangsung agar 100% SELARAS dengan kepribadian unikmu di atas:
+            * Jika deskripsi kepribadianmu cenderung sopan, pemalu, atau manis: Gunakan bisikan lembut, nada manja, desahan halus, dan ungkapan romantis. JANGAN menggunakan kata-kata kotor yang kasar.
+            * Jika deskripsi kepribadianmu cenderung tsundere, gengsian, atau jual mahal: Bicaralah dengan nada terkejut, gagu, pura-pura menolak namun tetap menunjukkan getaran gairah dan desahan malu-malu secara terselubung.
+            * Jika deskripsi kepribadianmu cenderung berani, nakal, agresif, atau vulgar: Gunakan bahasa yang lugas, ekspresif, dirty talk yang berani, desahan basah, dan nada bicara yang tersengal-sengal jika suasana sedang panas (Mode Puncak).
+          - DILARANG memaksakan gaya bicara yang bertentangan dengan deskripsi kepribadian unikmu di atas. Tunjukkan keotentikan karaktermu sepenuhnya.
           
           === INSTRUKSI ANTI-HALUSINASI ===
           - Jika detail tidak ada di timeline, jangan mengarang. 
@@ -669,11 +673,8 @@ const CallView: React.FC<CallViewProps> = ({
 
               if (message.serverContent?.outputTranscription) {
                 const text = message.serverContent.outputTranscription.text;
-                currentAgentTurnRef.current += text;
-                
-                const parsed = parseAgentText(currentAgentTurnRef.current);
-                setAgentReasoningText(parsed.reasoning);
-                setAgentSpeechText(parsed.speech);
+                currentAgentSpeechRef.current += text;
+                setAgentSpeechText(currentAgentSpeechRef.current.trim());
                 
                 // Jika user baru saja selesai ngomong, masukkan ke transkrip
                 if (currentUserTurnRef.current.trim()) {
@@ -685,10 +686,11 @@ const CallView: React.FC<CallViewProps> = ({
               if (message.serverContent?.inputTranscription) {
                 lastUserSpeechTimeRef.current = Date.now();
                 // User mulai ngomong, commit omongan agen sebelumnya jika ada
-                const cleanedAgentText = parseAgentText(currentAgentTurnRef.current).speech;
-                if (cleanedAgentText.trim()) {
-                  callTranscriptRef.current += `\nAgen: ${cleanedAgentText.trim()}`;
-                  currentAgentTurnRef.current = "";
+                const cleanedAgentSpeech = currentAgentSpeechRef.current.trim();
+                if (cleanedAgentSpeech && !callTranscriptRef.current.endsWith(cleanedAgentSpeech)) {
+                  callTranscriptRef.current += `\nAgen: ${cleanedAgentSpeech}`;
+                  currentAgentSpeechRef.current = "";
+                  currentAgentReasoningRef.current = "";
                 }
                 const text = message.serverContent.inputTranscription.text;
                 currentUserTurnRef.current += (currentUserTurnRef.current ? " " : "") + text;
@@ -697,12 +699,27 @@ const CallView: React.FC<CallViewProps> = ({
               const parts = message.serverContent?.modelTurn?.parts || [];
               
               for (const part of parts) {
-                if (part.text) {
-                  const text = part.text;
-                  currentAgentTurnRef.current += text;
-                  const parsed = parseAgentText(currentAgentTurnRef.current);
-                  setAgentReasoningText(parsed.reasoning);
-                  setAgentSpeechText(parsed.speech);
+                if (part.text || (part as any).thought) {
+                  const text = part.text || '';
+                  const parsed = parseAgentText(text);
+                  // Jika outputTranscription juga dipasok atau ini part.thought atau parsed memuat reasoning, ini adalah proses internal
+                  const isInternal = !!(message.serverContent?.outputTranscription || (part as any).thought || parsed.reasoning || !parsed.speech);
+                  if (isInternal) {
+                    const reasoningText = (parsed.reasoning || text).trim();
+                    if (reasoningText && !currentAgentReasoningRef.current.includes(reasoningText)) {
+                      currentAgentReasoningRef.current += (currentAgentReasoningRef.current ? " " : "") + reasoningText;
+                      setAgentReasoningText(currentAgentReasoningRef.current.trim());
+                    }
+                  } else {
+                    if (parsed.reasoning) {
+                      currentAgentReasoningRef.current += (currentAgentReasoningRef.current ? " " : "") + parsed.reasoning;
+                      setAgentReasoningText(currentAgentReasoningRef.current.trim());
+                    }
+                    if (parsed.speech) {
+                      currentAgentSpeechRef.current += (currentAgentSpeechRef.current ? " " : "") + parsed.speech;
+                      setAgentSpeechText(currentAgentSpeechRef.current.trim());
+                    }
+                  }
                 }
                 if (part.inlineData?.data) {
                   setStatus('SPEAKING...');
@@ -721,7 +738,12 @@ const CallView: React.FC<CallViewProps> = ({
                         setStatus('LISTENING...');
                         setIsFinishingSpeech(true);
                         setTimeout(() => setIsFinishingSpeech(false), 1500);
-                        setTimeout(() => { if (sourcesRef.current.size === 0) setAgentSpeechText(''); }, 2000);
+                        setTimeout(() => {
+                          if (sourcesRef.current.size === 0) {
+                            setAgentSpeechText('');
+                            setAgentReasoningText('');
+                          }
+                        }, 2000);
                       }
                     });
                     source.start(nextStartTimeRef.current);
@@ -736,13 +758,15 @@ const CallView: React.FC<CallViewProps> = ({
                 nextStartTimeRef.current = 0;
                 
                 // Commit apa yang sempat terucap sebelum dipotong
-                const toCommit = parseAgentText(currentAgentTurnRef.current).speech;
+                const toCommit = currentAgentSpeechRef.current.trim();
                 if (toCommit) {
                   callTranscriptRef.current += `\nAgen: ${toCommit} [DIPOTONG]`;
                 }
 
                 setAgentReasoningText('');
                 setAgentSpeechText('');
+                currentAgentSpeechRef.current = "";
+                currentAgentReasoningRef.current = "";
                 currentAgentTurnRef.current = "";
                 setAgentActivity(0);
                 setIsFinishingSpeech(false);
@@ -750,11 +774,13 @@ const CallView: React.FC<CallViewProps> = ({
               if (message.serverContent?.turnComplete) {
                 setStatus('LISTENING...');
                 
-                const toCommit = parseAgentText(currentAgentTurnRef.current).speech;
+                const toCommit = currentAgentSpeechRef.current.trim();
                 if (toCommit && !callTranscriptRef.current.endsWith(toCommit)) {
                    callTranscriptRef.current += `\nAgen: ${toCommit}`;
                 }
                 
+                currentAgentSpeechRef.current = "";
+                currentAgentReasoningRef.current = "";
                 currentAgentTurnRef.current = "";
                 setTranscription('');
                 currentUserTurnRef.current = "";
@@ -932,8 +958,8 @@ const CallView: React.FC<CallViewProps> = ({
         callTranscriptRef.current += `\nKamu: ${text}`;
       }
     }
-    if (currentAgentTurnRef.current.trim()) {
-      const text = parseAgentText(currentAgentTurnRef.current).speech;
+    if (currentAgentSpeechRef.current.trim()) {
+      const text = currentAgentSpeechRef.current.trim();
       // Cek apakah sudah pernah di-commit (oleh turnComplete)
       if (text && !callTranscriptRef.current.endsWith(text)) {
         callTranscriptRef.current += `\nAgen: ${text}`;
