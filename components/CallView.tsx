@@ -16,6 +16,7 @@ import {
 import GlassDropdown from './GlassDropdown';
 import { setStoredGlobalGeminiSettings, saveGlobalGeminiSettingsSync, getEffectiveGlobalGeminiSettings } from '../services/dbService';
 import { Sparkles, RotateCcw } from 'lucide-react';
+import { handleTextareaKeyDown } from './ChatView';
 
 interface CallViewProps {
   config: AgentConfig;
@@ -174,6 +175,8 @@ const CallView: React.FC<CallViewProps> = ({
   const currentAgentTurnRef = useRef<string>("");
   const currentAgentSpeechRef = useRef<string>("");
   const currentAgentReasoningRef = useRef<string>("");
+  const isAudioInterruptedRef = useRef<boolean>(false);
+  const callTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const volumeSliderRef = useRef<HTMLDivElement>(null);
   const volumeBtnRef = useRef<HTMLButtonElement>(null);
@@ -673,6 +676,7 @@ const CallView: React.FC<CallViewProps> = ({
               }
 
               if (message.serverContent?.outputTranscription) {
+                isAudioInterruptedRef.current = false;
                 const text = message.serverContent.outputTranscription.text;
                 currentAgentSpeechRef.current += text;
                 setAgentSpeechText(currentAgentSpeechRef.current.trim());
@@ -723,6 +727,10 @@ const CallView: React.FC<CallViewProps> = ({
                   }
                 }
                 if (part.inlineData?.data) {
+                  if (isAudioInterruptedRef.current) {
+                    // Abaikan audio sisa dari turn sebelumnya yang baru tiba dari WebSocket setelah interupsi
+                    continue;
+                  }
                   setStatus('SPEAKING...');
                   setIsFinishingSpeech(false);
                   const base64Audio = part.inlineData.data;
@@ -757,6 +765,7 @@ const CallView: React.FC<CallViewProps> = ({
                 stopAgentSpeaking('[DIPOTONG]');
               }
               if (message.serverContent?.turnComplete) {
+                isAudioInterruptedRef.current = false;
                 setStatus('LISTENING...');
                 
                 const toCommit = currentAgentSpeechRef.current.trim();
@@ -896,6 +905,7 @@ const CallView: React.FC<CallViewProps> = ({
   }, [currentVoice, currentCallModel, retryCount]);
 
   const stopAgentSpeaking = (reasonTag: string = '[DIPOTONG]') => {
+    isAudioInterruptedRef.current = true;
     sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
     sourcesRef.current.clear();
     nextStartTimeRef.current = 0;
@@ -937,6 +947,9 @@ const CallView: React.FC<CallViewProps> = ({
       sendTextMessage(session, inputText);
     });
     setInputText('');
+    if (callTextareaRef.current) {
+      callTextareaRef.current.style.height = 'auto';
+    }
   };
 
   const handlePoke = () => {
@@ -1318,24 +1331,31 @@ const CallView: React.FC<CallViewProps> = ({
         </div>
 
         <div 
-          className="w-full flex items-center gap-3 bg-white/5 border border-white/10 rounded-[28px] p-1 pl-7 shadow-2xl backdrop-blur-3xl ring-1 ring-white/5"
+          className="w-full flex items-end gap-3 bg-white/5 border border-white/10 rounded-[28px] p-1.5 pl-6 shadow-2xl backdrop-blur-3xl ring-1 ring-white/5"
           style={{ 
             borderColor: inputText.trim() ? `${themeHex}40` : undefined,
             boxShadow: inputText.trim() ? `0 0 20px ${themeHex}10` : undefined
           }}
         >
-          <input 
-            type="text" 
+          <textarea 
+            ref={callTextareaRef}
+            rows={1}
             placeholder="Bisikin sesuatu..." 
-            className={`flex-1 bg-transparent outline-none py-3 text-[11px] md:text-sm font-bold ${dynamicTextColor} placeholder:${dynamicMutedTextColor}`} 
+            className={`flex-1 bg-transparent outline-none py-2.5 text-[11px] md:text-sm font-bold ${dynamicTextColor} placeholder:${dynamicMutedTextColor} resize-none max-h-28 min-h-[38px] overflow-y-auto custom-scrollbar leading-relaxed`} 
             value={inputText} 
-            onChange={(e) => setInputText(e.target.value)} 
-            onKeyDown={(e) => e.key === 'Enter' && handleSendText()} 
+            onChange={(e) => {
+              setInputText(e.target.value);
+              if (e.target) {
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 110)}px`;
+              }
+            }} 
+            onKeyDown={(e) => handleTextareaKeyDown(e, () => handleSendText())} 
           />
           <button 
             onClick={handleSendText} 
             disabled={!inputText.trim()} 
-            className={`p-3 ${themeTextClass} rounded-full transition-all disabled:opacity-20 active:scale-90 mr-0.5 shadow-lg border`}
+            className={`p-3 mb-0.5 ${themeTextClass} rounded-full transition-all disabled:opacity-20 active:scale-90 mr-0.5 shadow-lg border shrink-0`}
             style={{ backgroundColor: themeHex, borderColor: `${themeHex}40` }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

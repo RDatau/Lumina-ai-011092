@@ -431,6 +431,39 @@ class StreamingPcmPlayer {
   }
 }
 
+export const isTouchOrMobileDevice = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia('(pointer: coarse)').matches ||
+    window.innerWidth < 768
+  );
+};
+
+export const handleTextareaKeyDown = (
+  e: React.KeyboardEvent<HTMLTextAreaElement>, 
+  onSend: () => void
+) => {
+  if (e.key === 'Enter') {
+    const isMobile = isTouchOrMobileDevice();
+    if (isMobile) {
+      // Mode Mobile: Enter untuk baris baru (biarkan default behavior)
+      return;
+    } else {
+      // Mode Desktop:
+      if (e.shiftKey) {
+        // Shift + Enter = baris baru (biarkan default behavior)
+        return;
+      } else {
+        // Enter tanpa Shift = KIRIM PESAN!
+        e.preventDefault();
+        onSend();
+      }
+    }
+  }
+};
+
 interface ChatViewProps {
   config: AgentConfig; 
   setConfig: (config: AgentConfig) => void;
@@ -508,6 +541,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [userProfile]);
 
   const [inputText, setInputText] = useState('');
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editAttachments, setEditAttachments] = useState<Attachment[]>([]);
@@ -1839,6 +1873,9 @@ const ChatView: React.FC<ChatViewProps> = ({
     setInputText(''); 
     setAttachedFiles([]); 
     setEditingId(null); 
+    if (chatTextareaRef.current) {
+      chatTextareaRef.current.style.height = 'auto';
+    }
     let loadingStatusText = "Lagi baca kiriman kamu...";
     let currentOutfitForMsg: string | undefined = undefined;
     let currentUserOutfitForMsg: string | undefined = undefined;
@@ -2947,31 +2984,38 @@ const ChatView: React.FC<ChatViewProps> = ({
               ))}
             </div>
           )}
-          <footer className={`relative flex items-center gap-2 p-1.5 rounded-full shadow-[0_15px_35px_rgba(0,0,0,0.4)] transition-all group`} style={glassStyles}>
-            <label className="p-3 hover:bg-white/10 rounded-full cursor-pointer transition-all active:scale-90 flex items-center justify-center">
+          <footer className={`relative flex items-end gap-2 p-1.5 rounded-[28px] shadow-[0_15px_35px_rgba(0,0,0,0.4)] transition-all group`} style={glassStyles}>
+            <label className="p-3 mb-0.5 hover:bg-white/10 rounded-full cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0">
               <input type="file" className="hidden" multiple accept="image/*,video/*,audio/*,.pdf,.txt" onChange={e => handleFiles(e.target.files)} />
               <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${dynamicIconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </label>
             <button 
               onClick={toggleVoiceToText} 
-              className={`p-3 rounded-full transition-all active:scale-90 flex items-center justify-center ${isListening ? `text-white animate-pulse` : `hover:bg-white/10 ${dynamicIconColor}`}`}
+              className={`p-3 mb-0.5 rounded-full transition-all active:scale-90 flex items-center justify-center shrink-0 ${isListening ? `text-white animate-pulse` : `hover:bg-white/10 ${dynamicIconColor}`}`}
               style={isListening ? { backgroundColor: themeHex } : {}}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
             </button>
-            <input 
-              type="text" 
+            <textarea 
+              ref={chatTextareaRef}
+              rows={1}
               placeholder={`Bisikin sesuatu ke ${config.name}...`} 
-              className={`flex-1 bg-transparent outline-none py-3 text-sm font-semibold ${dynamicTextColor} placeholder:${dynamicMutedTextColor}`} 
+              className={`flex-1 bg-transparent outline-none py-2.5 text-sm font-semibold ${dynamicTextColor} placeholder:${dynamicMutedTextColor} resize-none max-h-32 min-h-[40px] overflow-y-auto custom-scrollbar leading-relaxed`} 
               value={inputText} 
-              onChange={e => setInputText(e.target.value)} 
-              onKeyDown={e => e.key === 'Enter' && handleSend()} 
+              onChange={e => {
+                setInputText(e.target.value);
+                if (e.target) {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 130)}px`;
+                }
+              }} 
+              onKeyDown={e => handleTextareaKeyDown(e, () => handleSend())} 
               style={{ touchAction: 'auto' }}
             />
             <button 
               onClick={() => handleSend()} 
               disabled={(!inputText.trim() && attachedFiles.length === 0) || isTyping} 
-              className={`w-11 h-11 md:w-12 md:h-12 flex-shrink-0 ${themeTextClass} rounded-full transition-all active:scale-95 disabled:opacity-20 shadow-lg border ${dynamicThemeBorderColor} flex items-center justify-center mr-0.5`}
+              className={`w-11 h-11 md:w-12 md:h-12 flex-shrink-0 mb-0.5 ${themeTextClass} rounded-full transition-all active:scale-95 disabled:opacity-20 shadow-lg border ${dynamicThemeBorderColor} flex items-center justify-center mr-0.5`}
               style={{ backgroundColor: themeHex, borderColor: `${themeHex}40` }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
