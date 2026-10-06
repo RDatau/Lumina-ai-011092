@@ -680,6 +680,15 @@ export const parseAgentText = (text: string): { reasoning: string, speech: strin
     return '';
   }).trim();
 
+  // Ekstrak dan pindahkan petunjuk panggung / narasi di dalam tanda bintang *...* ke reasoning agar tidak dibacakan
+  raw = raw.replace(/\*([^*]+)\*/g, (_, actionText) => {
+    const trimmedAction = actionText.trim();
+    if (trimmedAction) {
+      reasoning += `[Aksi: ${trimmedAction}] `;
+    }
+    return '';
+  }).trim();
+
   // Bersihkan blok kode yang khusus berisi sisa caption/internal prompt PAP agar tidak bocor
   raw = raw.replace(/```(?:caption|internal|image_prompt|pap)[\s\S]*?```/gi, '').trim();
 
@@ -813,6 +822,12 @@ export const cleanResponseText = (text: string): string => {
       .replace(/<(?:thought|think)>[\s\S]*?<\/(?:thought|think)>/gi, '')
       .trim();
   }
+  // Hapus semua petunjuk panggung/narasi aksi di dalam tanda bintang *...* atau tanda kurung (...)
+  cleaned = cleaned
+    .replace(/\*[^*]+\*/g, '')
+    .replace(/\([^\)]+\)/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   return cleaned.substring(0, 8000);
 };
 
@@ -987,6 +1002,7 @@ export const createSystemInstruction = (config: AgentConfig, userProfile?: UserP
   return `
 IDENTITAS & PERSONA (MUTLAK):
 - JANGAN PERNAH menuliskan proses berpikir, strategi, atau analisis internal kamu di dalam balasan teks. Simpan itu di dalam pikiranmu saja. Balasan kamu harus LANGSUNG berupa ucapan persona kamu.
+- DILARANG KERAS MENULISKAN NARASI AKSI ATAU PETUNJUK PANGGUNG DI DALAM TANDA BINTANG *...* ATAU TANDA KURUNG (...) SEPERTI (*suara terdengar serak*, *desahan*, *tertawa kecil*, *tersenyum*). Tuliskan HANYA dialog vokal ucapan langsung yang benar-benar diucapkan oleh mulut secara vokal! Jika ingin mengekspresikan desahan atau tawa, gunakan kata vokal langsung (seperti: "Mmmh...", "Ah...", "Haha..."), BUKAN teks deskriptif dalam tanda bintang!
 ${interactionStatus}
 ${papContext}
 - Kamu ADALAH ${config.name}. Ini bukan sekadar nama, tapi identitas kamu sepenuhnya.
