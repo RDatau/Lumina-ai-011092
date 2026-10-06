@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AgentConfig, ChatMessage, Attachment, UserProfile, GlobalAppearance, ActiveGenerationTask } from '../types';
-import { generateAgentResponse, getSpeech, generatePAP, cleanResponseText, generateErrorMessage, reviseAgentResponseBasedOnImage, generateSmartTitle, isTtsModelStreamSupported, getActiveTtsModel, cleanRawCaptionToPureGarment, regeneratePapVariation } from '../services/geminiService';
+import { generateAgentResponse, getSpeech, generatePAP, cleanResponseText, generateErrorMessage, reviseAgentResponseBasedOnImage, generateSmartTitle, isTtsModelStreamSupported, getActiveTtsModel, cleanRawCaptionToPureGarment, regeneratePapVariation, getAllGeminiApiKeys } from '../services/geminiService';
 import { triggerNewMessageNotification } from '../services/notificationService';
 import ImageInfoModal from './ImageInfoModal';
 
@@ -503,6 +503,10 @@ const ChatView: React.FC<ChatViewProps> = ({
   onFinishGeneration,
   activeGenerations = []
 }) => {
+  const hasApiKey = useMemo(() => {
+    return getAllGeminiApiKeys(userProfile).length > 0;
+  }, [userProfile]);
+
   const [inputText, setInputText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
@@ -2321,7 +2325,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                 title="Lihat Foto Profil"
               >
                 <img src={config.profilePic || undefined} className={`w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border ${isBackgroundDark ? 'border-white/20' : 'border-black/20'} shadow-md transition-transform group-hover/avatar:scale-105 active:scale-95`} alt="Avatar" />
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border border-black animate-pulse"></div>
+                <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border border-black ${hasApiKey ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
               </div>
               
               <div 
@@ -2331,14 +2335,18 @@ const ChatView: React.FC<ChatViewProps> = ({
               >
                 <div className="flex items-center gap-1.5 min-w-0 w-full">
                   <h2 className={`font-bold text-sm md:text-base leading-tight tracking-tight truncate ${dynamicTextColor}`}>{config.name}</h2>
-                  {userProfile.geminiApiKey && (
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex-shrink-0" title="Menggunakan API Key Pribadi">
-                      <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest">API OK</span>
-                    </div>
-                  )}
                 </div>
-                <p className="text-[10px] text-green-400 font-black uppercase tracking-widest">Online</p>
+                {hasApiKey ? (
+                  <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                    <span>ONLINE</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-rose-500 font-black uppercase tracking-widest flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+                    <span>OFFLINE</span>
+                  </p>
+                )}
               </div>
             </div>
             
