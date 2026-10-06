@@ -4,6 +4,8 @@ import GlassDropdown from './GlassDropdown';
 import { dbService, FullBackup } from '../services/dbService';
 import { Sparkles, SlidersHorizontal, User, Trash2, Save, Download, Upload, RotateCcw, AlertTriangle, Check, Camera, Plus } from 'lucide-react';
 
+const DEFAULT_CHARACTER_PIC = 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&q=80&w=600';
+
 interface SetupViewProps {
   config: AgentConfig;
   setConfig: (config: AgentConfig) => void;
@@ -261,6 +263,16 @@ const SetupView: React.FC<SetupViewProps> = ({
                     <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                     <Camera className={`h-2.5 w-2.5 ${themeTextClass}`} />
                   </label>
+                  {config.profilePic && config.profilePic !== DEFAULT_CHARACTER_PIC && (
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config, profilePic: DEFAULT_CHARACTER_PIC })}
+                      className="absolute -top-1 -right-1 p-1 rounded-lg bg-indigo-500/90 hover:bg-indigo-600 text-white cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-md border border-white/20"
+                      title="Reset Foto Profil Karakter ke Default"
+                    >
+                      <RotateCcw className="h-2.5 w-2.5" />
+                    </button>
+                  )}
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -405,6 +417,16 @@ const SetupView: React.FC<SetupViewProps> = ({
                     <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
                     <Camera className={`h-2.5 w-2.5 ${themeTextClass}`} />
                   </label>
+                  {config.profilePic && config.profilePic !== DEFAULT_CHARACTER_PIC && (
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config, profilePic: DEFAULT_CHARACTER_PIC })}
+                      className="absolute -top-1 -right-1 p-1 rounded-lg bg-indigo-500/90 hover:bg-indigo-600 text-white cursor-pointer shadow-md border border-white/20"
+                      title="Reset Foto Profil Karakter ke Default"
+                    >
+                      <RotateCcw className="h-2.5 w-2.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <input 

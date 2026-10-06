@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { UserProfile, GlobalAppearance } from '../types';
-import { Eye, EyeOff, Key, CheckCircle2, XCircle, Loader2, Bell, Volume2, Smartphone } from 'lucide-react';
+import { Eye, EyeOff, Key, CheckCircle2, XCircle, Loader2, Bell, Volume2, Smartphone, Trash2 } from 'lucide-react';
 import { validateApiKey } from '../services/geminiService';
 import { 
   getNotificationSettings, 
@@ -58,6 +58,13 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
         setProfilePic(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setProfilePic(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -221,6 +228,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
                   <label 
                     className="absolute -bottom-1 -right-1 p-2 rounded-xl cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-lg border border-white/20"
                     style={{ backgroundColor: themeHex || '#6366f1' }}
+                    title="Upload / Ganti Foto"
                   >
                     <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} ref={fileInputRef} />
                     <svg className={`h-3 w-3 ${themeTextClass}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
@@ -235,9 +243,22 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
                     onChange={(e) => setName(e.target.value)} 
                     placeholder="Nama Kamu..." 
                   />
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: themeHex || '#6366f1' }}></span>
-                    <p className={`text-[9px] font-bold ${dynamicMutedTextColor} uppercase tracking-widest`}>User Aktif</p>
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: themeHex || '#6366f1' }}></span>
+                      <p className={`text-[9px] font-bold ${dynamicMutedTextColor} uppercase tracking-widest`}>User Aktif</p>
+                    </div>
+                    {profilePic && (
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[10px] font-bold transition-all active:scale-95 cursor-pointer"
+                        title="Hapus Foto Profil"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Hapus Foto</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
