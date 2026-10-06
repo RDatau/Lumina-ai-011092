@@ -754,23 +754,7 @@ const CallView: React.FC<CallViewProps> = ({
                 }
               }
               if (message.serverContent?.interrupted) {
-                sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
-                sourcesRef.current.clear();
-                nextStartTimeRef.current = 0;
-                
-                // Commit apa yang sempat terucap sebelum dipotong
-                const toCommit = currentAgentSpeechRef.current.trim();
-                if (toCommit) {
-                  callTranscriptRef.current += `\nAgen: ${toCommit} [DIPOTONG]`;
-                }
-
-                setAgentReasoningText('');
-                setAgentSpeechText('');
-                currentAgentSpeechRef.current = "";
-                currentAgentReasoningRef.current = "";
-                currentAgentTurnRef.current = "";
-                setAgentActivity(0);
-                setIsFinishingSpeech(false);
+                stopAgentSpeaking('[DIPOTONG]');
               }
               if (message.serverContent?.turnComplete) {
                 setStatus('LISTENING...');
@@ -911,14 +895,36 @@ const CallView: React.FC<CallViewProps> = ({
     };
   }, [currentVoice, currentCallModel, retryCount]);
 
+  const stopAgentSpeaking = (reasonTag: string = '[DIPOTONG]') => {
+    sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
+    sourcesRef.current.clear();
+    nextStartTimeRef.current = 0;
+    
+    const toCommit = currentAgentSpeechRef.current.trim();
+    if (toCommit && !callTranscriptRef.current.endsWith(toCommit)) {
+      callTranscriptRef.current += `\nAgen: ${toCommit} ${reasonTag}`;
+    }
+
+    setAgentReasoningText('');
+    setAgentSpeechText('');
+    currentAgentSpeechRef.current = "";
+    currentAgentReasoningRef.current = "";
+    currentAgentTurnRef.current = "";
+    setAgentActivity(0);
+    setIsFinishingSpeech(false);
+  };
+
   const handleSendText = () => {
     if (!inputText.trim()) return;
     lastUserSpeechTimeRef.current = Date.now();
     if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
-    setAgentSpeechText('');
+    
+    // Hentikan suara agen yang sedang berputar secara instan (interupsi via pesan teks)
+    stopAgentSpeaking('[DIPOTONG VIA TEKS]');
+
     setStatus('AGENT THINKING...');
     setIsFinishingSpeech(false);
-    callTranscriptRef.current += `\nUSER (TEXT): ${inputText}`;
+    callTranscriptRef.current += `\nKamu (Teks): ${inputText.trim()}`;
     
     // Safety timeout to reset status if no response
     setTimeout(() => {
@@ -929,14 +935,13 @@ const CallView: React.FC<CallViewProps> = ({
 
     sessionPromiseRef.current?.then(session => {
       sendTextMessage(session, inputText);
-    }).finally(() => {
-      // We don't clear timeout here because we want to wait for the actual response
     });
     setInputText('');
   };
 
   const handlePoke = () => {
     if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
+    stopAgentSpeaking('[DIPOTONG VIA COLEKAN]');
     sessionPromiseRef.current?.then(session => {
       sendTextMessage(session, `POKE_GREETING: Ayo sapa aku lagi, ${config.name} kangen ya?`);
     });
