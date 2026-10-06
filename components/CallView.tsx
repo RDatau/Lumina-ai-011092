@@ -602,6 +602,30 @@ const CallView: React.FC<CallViewProps> = ({
           ? currentCallModel 
           : 'gemini-2.5-flash-native-audio-preview-12-2025';
 
+        // 1. Pengecekan model
+        const isGemini38Live = effectiveModel.includes('gemini-3.8-live') || effectiveModel.includes('3.8');
+
+        // 2. Format system instruction ke tipe Content yang benar
+        const formattedSystemInstruction = typeof fullInstruction === 'string'
+          ? { parts: [{ text: fullInstruction }] }
+          : fullInstruction;
+
+        // 3. Susun konfigurasi koneksi Live yang bersih
+        const liveConfig: any = {
+          responseModalities: [Modality.AUDIO],
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: normalizeLiveVoice(currentVoice)
+              }
+            }
+          },
+          systemInstruction: formattedSystemInstruction,
+          safetySettings: safetySettings as any
+        };
+
         sessionPromiseRef.current = ai.live.connect({
           model: effectiveModel,
           callbacks: {
@@ -804,14 +828,7 @@ const CallView: React.FC<CallViewProps> = ({
               }
             }
           },
-          config: {
-            responseModalities: [Modality.AUDIO],
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: normalizeLiveVoice(currentVoice) } } },
-            systemInstruction: fullInstruction,
-            safetySettings: safetySettings as any
-          }
+          config: liveConfig
         } as any);
         sessionRef.current = await sessionPromiseRef.current;
       } catch (err: any) {
