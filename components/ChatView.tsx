@@ -556,6 +556,22 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [loadingStatus, setLoadingStatus] = useState('');
   const [papSlotPreview, setPapSlotPreview] = useState<{ slot: number; label: string; url: string } | null>(null);
   const [allPapSlots, setAllPapSlots] = useState<{ slot: number; label: string; url: string }[]>([]);
+
+  // Auto-rotasi pergantian preview gambar Slot 1 (Foto Profil) dan Slot 2 (Pose/Ruangan) setiap 3 detik saat generate PAP
+  useEffect(() => {
+    if (loadingType !== 'pap' || allPapSlots.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setPapSlotPreview(current => {
+        if (!current) return allPapSlots[0];
+        const currentIdx = allPapSlots.findIndex(s => s.slot === current.slot);
+        const nextIdx = (currentIdx + 1) % allPapSlots.length;
+        return allPapSlots[nextIdx];
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [loadingType, allPapSlots]);
   const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [streamingAudioId, setStreamingAudioId] = useState<string | null>(null);
@@ -2917,14 +2933,17 @@ const ChatView: React.FC<ChatViewProps> = ({
                         {papSlotPreview.label}
                       </span>
                       {allPapSlots.length > 1 && (
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 pointer-events-auto">
                           {allPapSlots.map(s => (
-                            <span 
+                            <button 
+                              type="button"
                               key={s.slot} 
-                              className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase transition-all ${s.slot === papSlotPreview.slot ? 'bg-white text-black font-extrabold shadow' : 'bg-black/60 text-white/70 border border-white/10'}`}
+                              onClick={(e) => { e.stopPropagation(); setPapSlotPreview(s); }}
+                              className={`px-2 py-0.5 rounded text-[7px] font-black uppercase transition-all cursor-pointer ${s.slot === papSlotPreview.slot ? 'bg-white text-black font-extrabold shadow scale-105 ring-1 ring-white/50' : 'bg-black/60 text-white/70 hover:bg-black/80 hover:text-white border border-white/10'}`}
+                              title={s.label}
                             >
                               Img {s.slot}
-                            </span>
+                            </button>
                           ))}
                         </div>
                       )}

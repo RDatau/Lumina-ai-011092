@@ -712,9 +712,9 @@ const inspectSpaceEndpoint = async (
 };
 
 // CopoZ Qwen Image Edit Identity & Anatomy Constants (Pure Positive Directives)
-export const QWEN_IDENTITY_BASE = "Keep the exact same person: identical face, facial features, eyes, nose, mouth, face shape, tattoos, skin tone, hairstyle, and hair color from Image 1 so she remains clearly recognizable. Image 1 serves strictly as a facial identity and biometric reference. The face follows the new pose naturally with sharp consistent focus.";
-export const QWEN_IDENTITY_EMPHASIS = "Faithfully maintaining her exact face likeness is the primary requirement.";
-export const QWEN_IDENTITY_MAX = "Reproduce her exact facial proportions precisely as shown in the reference.";
+export const QWEN_IDENTITY_BASE = "ABSOLUTE FACIAL IDENTITY LOCK FROM IMAGE 1: Reproduce the exact same person with identical face, facial features, eyes, nose, mouth, face shape, skin tone, hairstyle, and hair color strictly from Image 1 so she remains 100% recognizable. Image 1 is the sole facial biometric reference. Do NOT alter her face using Image 2 or Image 3.";
+export const QWEN_IDENTITY_EMPHASIS = "Faithfully maintaining her exact face likeness from Image 1 is the absolute highest priority.";
+export const QWEN_IDENTITY_MAX = "Reproduce her exact facial proportions precisely as shown in Image 1 reference.";
 export const QWEN_IDENTITY_NEG = "";
 
 export const QWEN_ANATOMY_POS = "Anatomically correct human body with two arms, two legs, and two hands each having exactly five distinct well-defined fingers.";
@@ -836,6 +836,11 @@ export const generateWithHuggingFaceSpace = async (
         console.warn("[HF-ZeroGPU] Gagal mengunggah gallery reference image:", e);
       }
     }
+  }
+
+  // Kembalikan preview jangkar ke Image 1 (Foto Profil Karakter) agar user melihat foto profil sebagai identitas utama
+  if (inputImage) {
+    onStatusUpdate?.("Seluruh referensi gambar terunggah. Menghubungkan ke Space ZeroGPU...", { slot: 1, label: "Image 1: Base (Identitas Karakter)", url: inputImage });
   }
 
   // Bangun payload data dinamis berdasarkan skema komponen Space

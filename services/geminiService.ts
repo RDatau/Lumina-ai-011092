@@ -2522,18 +2522,20 @@ Retain the EXACT SAME LOCATION/SETTING with previous PAP (${analyzedRoom}). Char
       // Slot 3 (Additional Images Gallery):
       //   - Pakaian / foto ruangan tambahan yang diunggah user
       let baseImage: string | null = null;
-      if (config.profilePic && config.profilePic.startsWith('data:')) {
-        baseImage = config.profilePic;
-      } else if (config.profilePic && (config.profilePic.startsWith('http://') || config.profilePic.startsWith('https://'))) {
-        try {
-          baseImage = await fetchUrlToDataUrl(config.profilePic);
-        } catch (e) {
-          console.warn("[HF-ZeroGPU] Gagal mengambil profilePic URL:", e);
+      if (config.profilePic) {
+        if (config.profilePic.startsWith('data:')) {
+          baseImage = config.profilePic;
+        } else if (config.profilePic.startsWith('http://') || config.profilePic.startsWith('https://')) {
+          try {
+            baseImage = await fetchUrlToDataUrl(config.profilePic);
+          } catch (e) {
+            console.warn("[HF-ZeroGPU] Gagal mengambil profilePic URL:", e);
+          }
         }
       }
 
-      // Fallback Base Image jika karakter belum memiliki foto profil sama sekali
-      if (!baseImage) {
+      // Fallback Base Image HANYA jika karakter benar-benar belum memiliki foto profil sama sekali
+      if (!baseImage && !config.profilePic) {
         const prevPapMsg = [...history].reverse().find(m => m.role === 'agent' && m.image && m.image.startsWith('data:'));
         if (prevPapMsg?.image) {
           baseImage = prevPapMsg.image;
