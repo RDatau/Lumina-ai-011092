@@ -1428,7 +1428,10 @@ const CallView: React.FC<CallViewProps> = ({
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[10px] text-white font-mono outline-none focus:border-indigo-500/50"
                   />
                 </div>
-                <div className="p-3 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                <div 
+                  onClick={() => setIsAutoReconnectEnabled(!isAutoReconnectEnabled)}
+                  className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl space-y-1 cursor-pointer transition-all active:scale-[0.99] select-none"
+                >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-1.5">
@@ -1439,7 +1442,7 @@ const CallView: React.FC<CallViewProps> = ({
                     </div>
                     <button 
                       type="button"
-                      onClick={() => setIsAutoReconnectEnabled(!isAutoReconnectEnabled)}
+                      onClick={(e) => { e.stopPropagation(); setIsAutoReconnectEnabled(!isAutoReconnectEnabled); }}
                       className={`relative w-9 h-5 rounded-full transition-all duration-300 ${isAutoReconnectEnabled ? 'bg-indigo-500' : 'bg-zinc-700'}`}
                     >
                       <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${isAutoReconnectEnabled ? 'left-4' : 'left-0.5'}`} />
@@ -1448,7 +1451,10 @@ const CallView: React.FC<CallViewProps> = ({
                 </div>
 
                 <div className="p-3 bg-white/5 border border-white/10 rounded-2xl space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div 
+                    onClick={() => setIsAutoPokeEnabled(!isAutoPokeEnabled)}
+                    className="flex items-center justify-between cursor-pointer hover:opacity-90 select-none"
+                  >
                     <div>
                       <div className="flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -1458,7 +1464,7 @@ const CallView: React.FC<CallViewProps> = ({
                     </div>
                     <button 
                       type="button"
-                      onClick={() => setIsAutoPokeEnabled(!isAutoPokeEnabled)}
+                      onClick={(e) => { e.stopPropagation(); setIsAutoPokeEnabled(!isAutoPokeEnabled); }}
                       className={`relative w-9 h-5 rounded-full transition-all duration-300 ${isAutoPokeEnabled ? 'bg-amber-500' : 'bg-zinc-700'}`}
                     >
                       <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${isAutoPokeEnabled ? 'left-4' : 'left-0.5'}`} />

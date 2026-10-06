@@ -105,10 +105,9 @@ const App: React.FC = () => {
       injectNegativePrompt: effectiveGemini.injectNegativePrompt,
       injectAnatomyGuard: effectiveGemini.injectAnatomyGuard,
     };
-    if (agentId === config.id) {
-      setUserProfile(finalProfile);
-    }
+    setUserProfile(finalProfile);
     if (isDbReady) {
+      await dbService.saveGlobalUserProfile(finalProfile);
       await dbService.saveUserProfile(finalProfile, agentId);
     }
   };
@@ -867,11 +866,10 @@ const App: React.FC = () => {
         const effectiveGemini = getEffectiveGlobalGeminiSettings(globalGeminiSettings);
 
         const mergedProfile: UserProfile = {
-          // Identitas user
+          // Identitas & Informasi User Global
           name: globalProfile?.name || savedProfile?.name || userProfile.name || '',
           profilePic: globalProfile?.profilePic ?? savedProfile?.profilePic ?? userProfile.profilePic ?? null,
-          // Karakter-spesifik
-          personalityInfo: savedProfile?.personalityInfo || '',
+          personalityInfo: globalProfile?.personalityInfo || savedProfile?.personalityInfo || userProfile.personalityInfo || '',
           currentOutfit: savedProfile?.currentOutfit,
           lastPapTimestamp: savedProfile?.lastPapTimestamp,
           isEnrichPersonaEnabled: savedProfile?.isEnrichPersonaEnabled ?? globalProfile?.isEnrichPersonaEnabled,

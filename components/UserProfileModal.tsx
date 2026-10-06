@@ -290,7 +290,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
 
             <div className={`p-4 rounded-2xl border ${dynamicBorderColor} ${isDark ? 'bg-white/5' : 'bg-black/5'} space-y-3.5`}>
               {/* Toggle Suara */}
-              <div className="flex items-center justify-between">
+              <div 
+                onClick={() => {
+                  const next = !notifSound;
+                  setNotifSound(next);
+                  saveNotificationSettings({ enableSound: next });
+                }}
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer select-none"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                     <Volume2 className="w-4 h-4" />
@@ -303,13 +310,25 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
                 <input 
                   type="checkbox" 
                   checked={notifSound} 
-                  onChange={(e) => { setNotifSound(e.target.checked); saveNotificationSettings({ enableSound: e.target.checked }); }}
+                  onChange={(e) => { 
+                    e.stopPropagation();
+                    setNotifSound(e.target.checked); 
+                    saveNotificationSettings({ enableSound: e.target.checked }); 
+                  }}
                   className="w-5 h-5 accent-indigo-500 rounded cursor-pointer"
                 />
               </div>
 
               {/* Toggle Getar */}
-              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+              <div 
+                onClick={() => {
+                  const next = !notifVibration;
+                  setNotifVibration(next);
+                  saveNotificationSettings({ enableVibration: next });
+                  if (next) triggerVibration('text');
+                }}
+                className="flex items-center justify-between p-2 rounded-xl border-t border-white/5 hover:bg-white/5 transition-all cursor-pointer select-none"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                     <Smartphone className="w-4 h-4" />
@@ -323,6 +342,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
                   type="checkbox" 
                   checked={notifVibration} 
                   onChange={(e) => { 
+                    e.stopPropagation();
                     setNotifVibration(e.target.checked); 
                     saveNotificationSettings({ enableVibration: e.target.checked }); 
                     if (e.target.checked) triggerVibration('text');
@@ -332,7 +352,14 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
               </div>
 
               {/* Toggle Notifikasi Bawaan Android/Browser */}
-              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+              <div 
+                onClick={() => {
+                  const next = !notifSystem;
+                  setNotifSystem(next);
+                  saveNotificationSettings({ enableSystemNotifications: next });
+                }}
+                className="flex items-center justify-between p-2 rounded-xl border-t border-white/5 hover:bg-white/5 transition-all cursor-pointer select-none"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                     <Bell className="w-4 h-4" />
@@ -345,7 +372,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, pr
                 <input 
                   type="checkbox" 
                   checked={notifSystem} 
-                  onChange={(e) => { setNotifSystem(e.target.checked); saveNotificationSettings({ enableSystemNotifications: e.target.checked }); }}
+                  onChange={(e) => { 
+                    e.stopPropagation();
+                    setNotifSystem(e.target.checked); 
+                    saveNotificationSettings({ enableSystemNotifications: e.target.checked }); 
+                  }}
                   className="w-5 h-5 accent-emerald-500 rounded cursor-pointer"
                 />
               </div>

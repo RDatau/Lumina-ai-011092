@@ -630,13 +630,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <label className={`text-[10px] font-black ${dynamicMutedTextColor} uppercase tracking-[0.25em] select-none block`}>Efek & Tampilan Kaca</label>
 
                     {/* Dark Mode Toggle */}
-                    <div className={`flex items-center justify-between p-3 ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} rounded-xl border ${dynamicBorderColor}`}>
+                    <div 
+                      onClick={() => setAppearance({ ...appearance, isBackgroundDark: !isBackgroundDark })}
+                      className={`flex items-center justify-between p-3 ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} rounded-xl border ${dynamicBorderColor} cursor-pointer transition-all active:scale-[0.99]`}
+                    >
                       <div className="flex flex-col select-none">
                         <span className={`text-[10px] font-black uppercase tracking-wider ${dynamicTextColor}`}>Mode Gelap</span>
                         <span className={`text-[9px] font-medium ${dynamicMutedTextColor}`}>Kontras latar belakang</span>
                       </div>
                       <button 
-                        onClick={() => setAppearance({ ...appearance, isBackgroundDark: !isBackgroundDark })}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setAppearance({ ...appearance, isBackgroundDark: !isBackgroundDark }); }}
                         className={`relative w-11 h-6 rounded-full transition-all duration-300 ${isBackgroundDark ? '' : 'bg-zinc-300'}`}
                         style={isBackgroundDark ? { backgroundColor: themeHex } : {}}
                       >
@@ -645,14 +649,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     {/* Floating Progress Toggle */}
-                    <div className={`flex items-center justify-between p-3 ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} rounded-xl border ${dynamicBorderColor}`}>
+                    <div 
+                      onClick={() => setAppearance({ ...appearance, showFloatingProgress: appearance.showFloatingProgress === false ? true : false })}
+                      className={`flex items-center justify-between p-3 ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} rounded-xl border ${dynamicBorderColor} cursor-pointer transition-all active:scale-[0.99]`}
+                    >
                       <div className="flex flex-col select-none pr-2">
                         <span className={`text-[10px] font-black uppercase tracking-wider ${dynamicTextColor}`}>Progress Melayang</span>
                         <span className={`text-[9px] font-medium ${dynamicMutedTextColor}`}>Tampilkan widget proses generasi agen</span>
                       </div>
                       <button 
                         type="button"
-                        onClick={() => setAppearance({ ...appearance, showFloatingProgress: appearance.showFloatingProgress === false ? true : false })}
+                        onClick={(e) => { e.stopPropagation(); setAppearance({ ...appearance, showFloatingProgress: appearance.showFloatingProgress === false ? true : false }); }}
                         className={`relative w-11 h-6 rounded-full transition-all duration-300 flex-shrink-0 ${appearance.showFloatingProgress !== false ? '' : (isBackgroundDark ? 'bg-zinc-700/60' : 'bg-zinc-300')}`}
                         style={appearance.showFloatingProgress !== false ? { backgroundColor: themeHex } : {}}
                       >
@@ -1162,7 +1169,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
 
                         {/* Toggle 1: Inject Anatomy & Identity Guard (Pure Positive Directives) */}
-                        <div className={`p-2.5 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} flex items-center justify-between`}>
+                        <div 
+                          onClick={() => updateGlobalGemini({ injectAnatomyGuard: userProfile.injectAnatomyGuard === false ? true : false })}
+                          className={`p-2.5 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]`}
+                        >
                           <div className="space-y-0.5 pr-2">
                             <div className="flex items-center gap-1.5">
                               <span className={`text-[10px] font-black uppercase tracking-wider ${dynamicTextColor} block`}>
@@ -1180,7 +1190,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
                           <button 
                             type="button"
-                            onClick={() => updateGlobalGemini({ injectAnatomyGuard: userProfile.injectAnatomyGuard === false ? true : false })}
+                            onClick={(e) => { e.stopPropagation(); updateGlobalGemini({ injectAnatomyGuard: userProfile.injectAnatomyGuard === false ? true : false }); }}
                             className={`relative w-10 h-5 rounded-full transition-all duration-300 flex-shrink-0 ${userProfile.injectAnatomyGuard !== false ? 'bg-emerald-500' : 'bg-zinc-600'}`}
                           >
                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${userProfile.injectAnatomyGuard !== false ? 'left-5' : 'left-0.5'}`} />
@@ -1192,26 +1202,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div className={`p-3.5 rounded-2xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} space-y-2.5`}>
                         <label className={`text-[10px] font-black ${dynamicMutedTextColor} uppercase tracking-[0.25em] select-none block`}>Fitur Cerdas</label>
                         
-                        <div className={`p-2.5 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} flex items-center justify-between`}>
+                        <div 
+                          onClick={() => updateGlobalGemini({ useGoogleSearch: !userProfile.useGoogleSearch })}
+                          className={`p-2.5 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]`}
+                        >
                           <div className="space-y-0.5">
                             <span className={`text-[10px] font-black uppercase tracking-wider ${dynamicTextColor} block`}>Google Search Grounding</span>
                             <span className={`text-[9px] font-medium ${dynamicMutedTextColor} block`}>Beri akses internet ke agen</span>
                           </div>
                           <button 
-                            onClick={() => updateGlobalGemini({ useGoogleSearch: !userProfile.useGoogleSearch })}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); updateGlobalGemini({ useGoogleSearch: !userProfile.useGoogleSearch }); }}
                             className={`relative w-10 h-5 rounded-full transition-all duration-300 ${userProfile.useGoogleSearch ? 'bg-emerald-500' : 'bg-zinc-600'}`}
                           >
                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${userProfile.useGoogleSearch ? 'left-5' : 'left-0.5'}`} />
                           </button>
                         </div>
 
-                        <div className={`p-2.5 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5' : 'bg-black/5'} flex items-center justify-between`}>
+                        <div 
+                          onClick={() => updateGlobalGemini({ isEnrichPersonaEnabled: !userProfile.isEnrichPersonaEnabled })}
+                          className={`p-2.5 rounded-xl border ${dynamicBorderColor} ${isBackgroundDark ? 'bg-white/5 hover:bg-white/10' : 'bg-black/5 hover:bg-black/10'} flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]`}
+                        >
                           <div className="space-y-0.5">
                             <span className={`text-[10px] font-black uppercase tracking-wider ${dynamicTextColor} block`}>Enrich Persona</span>
                             <span className={`text-[9px] font-medium ${dynamicMutedTextColor} block`}>Auto-perkaya deskripsi karakter</span>
                           </div>
                           <button 
-                            onClick={() => updateGlobalGemini({ isEnrichPersonaEnabled: !userProfile.isEnrichPersonaEnabled })}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); updateGlobalGemini({ isEnrichPersonaEnabled: !userProfile.isEnrichPersonaEnabled }); }}
                             className={`relative w-10 h-5 rounded-full transition-all duration-300 ${userProfile.isEnrichPersonaEnabled ? 'bg-purple-500' : 'bg-zinc-600'}`}
                           >
                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${userProfile.isEnrichPersonaEnabled ? 'left-5' : 'left-0.5'}`} />
@@ -1239,7 +1257,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   {/* Toggle Suara */}
-                  <div className="flex items-center justify-between py-1">
+                  <div 
+                    onClick={() => {
+                      const next = !notifSound;
+                      setNotifSound(next);
+                      saveNotificationSettings({ enableSound: next });
+                      if (setUserProfile && userProfile) {
+                        setUserProfile({ ...userProfile, enableNotificationSound: next });
+                      }
+                    }}
+                    className={`flex items-center justify-between py-2 px-3 rounded-xl hover:bg-white/5 transition-all cursor-pointer select-none`}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                         <Volume2 className="w-4 h-4" />
@@ -1250,7 +1278,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                     <button 
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         const next = !notifSound;
                         setNotifSound(next);
                         saveNotificationSettings({ enableSound: next });
@@ -1265,7 +1295,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   {/* Toggle Getar */}
-                  <div className="flex items-center justify-between py-2 border-t border-white/5">
+                  <div 
+                    onClick={() => {
+                      const next = !notifVibration;
+                      setNotifVibration(next);
+                      saveNotificationSettings({ enableVibration: next });
+                      if (setUserProfile && userProfile) {
+                        setUserProfile({ ...userProfile, enableVibration: next });
+                      }
+                      if (next) triggerVibration('text');
+                    }}
+                    className={`flex items-center justify-between py-2 px-3 rounded-xl border-t border-white/5 hover:bg-white/5 transition-all cursor-pointer select-none`}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                         <Smartphone className="w-4 h-4" />
@@ -1276,7 +1317,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                     <button 
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         const next = !notifVibration;
                         setNotifVibration(next);
                         saveNotificationSettings({ enableVibration: next });
@@ -1292,7 +1335,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   {/* Toggle System Notification */}
-                  <div className="flex items-center justify-between py-2 border-t border-white/5">
+                  <div 
+                    onClick={() => {
+                      const next = !notifSystem;
+                      setNotifSystem(next);
+                      saveNotificationSettings({ enableSystemNotifications: next });
+                      if (setUserProfile && userProfile) {
+                        setUserProfile({ ...userProfile, enableSystemNotifications: next });
+                      }
+                    }}
+                    className={`flex items-center justify-between py-2 px-3 rounded-xl border-t border-white/5 hover:bg-white/5 transition-all cursor-pointer select-none`}
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                         <Bell className="w-4 h-4" />
@@ -1303,7 +1356,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                     <button 
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
                         const next = !notifSystem;
                         setNotifSystem(next);
                         saveNotificationSettings({ enableSystemNotifications: next });
