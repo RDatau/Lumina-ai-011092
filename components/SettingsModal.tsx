@@ -826,6 +826,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 updateGlobalGemini({ geminiApiKey: e.target.value });
                                 setValidationResult(null);
                               }}
+                              /* --- TAMBAHKAN DUA EVENT DI BAWAH INI --- */
+                              onInput={(e) => {
+                                const val = (e.target as HTMLTextAreaElement).value;
+                                updateGlobalGemini({ geminiApiKey: val });
+                                setValidationResult(null);
+                              }}
+                              onPaste={(e) => {
+                                const pasted = e.clipboardData.getData('text');
+                                if (pasted) {
+                                updateGlobalGemini({ geminiApiKey: pasted });
+                                setValidationResult(null);
+                                }
+                              }}
                             />
 
                             <div className="flex items-center justify-between gap-2 pt-0.5">
