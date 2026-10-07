@@ -1,5 +1,5 @@
 {
-  "name": "Lumina AI: Teman Ngobrol Pintar &amp; Nakal",
+  "name": "Lumina AI: Teman Ngobrol Pintar & Nakal",
   "short_name": "Lumina AI",
   "description": "Lumina AI - Teman ngobrol AI yang fleksibel dan seru.",
   "start_url": "/",
@@ -8,11 +8,7 @@
   "theme_color": "#000000",
   "orientation": "portrait",
   "lang": "id",
-  "categories": [
-    "social",
-    "entertainment",
-    "productivity"
-  ],
+  "categories": ["social", "entertainment", "productivity"],
   "icons": [
     {
       "purpose": "any",
@@ -39,9 +35,9 @@
       "type": "image/png"
     }
   ],
-  "screenshots": [
+"screenshots": [
     {
-      "src": "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&amp;w=1080&amp;h=1920&amp;fit=crop&amp;fm=png",
+      "src": "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1080&h=1920&fit=crop&fm=png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
